@@ -1,0 +1,10 @@
+services:
+  xmltvguide:
+    image: xmltvguide:latest
+    container_name: xmltvguide
+    ports:
+      - "8586:80"
+    restart: unless-stopped
+    environment:
+      - EPG_URL=https://example.com/api/time={unixtime}
+      - CHANNEL_MAP_PATH=/app/ChannelMap.json

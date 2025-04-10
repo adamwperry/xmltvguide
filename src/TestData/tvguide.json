@@ -1,0 +1,73 @@
+{
+  "channels": [
+    {
+      "callSign": "LITV",
+      "affiliateName": "",
+      "affiliateCallSign": "null",
+      "channelId": "10001",
+      "channelNo": "7",
+      "events": [
+        {
+          "callSign": "LITV",
+          "duration": "120",
+          "startTime": "2025-04-02T16:00:00Z",
+          "endTime": "2025-04-02T18:00:00Z",
+          "thumbnail": "litv_episode1",
+          "channelNo": "7",
+          "filter": [
+            "filter-drama"
+          ],
+          "seriesId": "SH00000001",
+          "rating": null,
+          "flag": [],
+          "tags": [],
+          "program": {
+            "title": "The Adventures of Sherlock Holmes: A Study in Scarlet",
+            "id": "SH000000010000",
+            "tmsId": "SH000000010000",
+            "shortDesc": "Detective Sherlock Holmes meets Dr. Watson and solves the mystery of a murder with a message written in blood.",
+            "season": "1",
+            "releaseYear": "2025",
+            "episode": "1",
+            "episodeTitle": "A Study in Scarlet",
+            "seriesId": "SH00000001",
+            "isGeneric": "0"
+          }
+        },
+        {
+          "callSign": "LITV",
+          "duration": "90",
+          "startTime": "2025-04-02T18:00:00Z",
+          "endTime": "2025-04-02T19:30:00Z",
+          "thumbnail": "litv_episode2",
+          "channelNo": "7",
+          "filter": [
+            "filter-drama"
+          ],
+          "seriesId": "SH00000001",
+          "rating": null,
+          "flag": [],
+          "tags": [],
+          "program": {
+            "title": "The Adventures of Sherlock Holmes: The Red-Headed League",
+            "id": "SH000000010001",
+            "tmsId": "SH000000010001",
+            "shortDesc": "Holmes investigates a strange job posting that turns out to be a front for an elaborate bank heist.",
+            "season": "1",
+            "releaseYear": "2025",
+            "episode": "2",
+            "episodeTitle": "The Red-Headed League",
+            "seriesId": "SH00000001",
+            "isGeneric": "0"
+          }
+        }
+      ],
+      "id": "100010",
+      "stationGenres": [false],
+      "stationFilters": [
+        "filter-drama"
+      ],
+      "thumbnail": "//fakeimg.tv/thumbnails/litv_logo_small.png"
+    }
+  ]
+}
