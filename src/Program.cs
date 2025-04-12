@@ -18,6 +18,11 @@ class Program
     {
         try
         {
+            Console.WriteLine($"EPG_URL: {Environment.GetEnvironmentVariable("EPG_URL")}");
+            Console.WriteLine($"CHANNEL_MAP_PATH: {Environment.GetEnvironmentVariable("CHANNEL_MAP_PATH")}");
+            Console.WriteLine($"OUTPUT_PATH: {Environment.GetEnvironmentVariable("OUTPUT_PATH")}");
+
+
 
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSingleton<IAppArguments, ArgumentParser>();
@@ -62,7 +67,7 @@ class Program
             var serviceProvider = serviceCollection.BuildServiceProvider();
             dataFetcherService = serviceProvider.GetService<IDataFetcher>() 
                 ?? throw new InvalidOperationException("Failed to resolve IDataFetcher service.");
-                
+
             if (dataFetcherService == null)
             {
                 Console.WriteLine("Failed to resolve IDataFetcher service.");

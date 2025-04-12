@@ -1,15 +1,17 @@
 #!/bin/bash
 
-# Start cron and nginx
+# make sure the log exists
+touch /var/log/cron.log
+
+# log time to confirm startup
+echo "[entrypoint] Started at $(date -u)" >> /var/log/cron.log
+
+# start cron and nginx
 service cron start
 service nginx start
 
-# Create and tail cron log in the background
-touch /var/log/cron.log
-tail -f /var/log/cron.log &
+# run app once at startup
+dotnet /app/xmltvguide-generator.dll >> /var/log/cron.log 2>&1
 
-# Run the app once on container start
-dotnet /app/xmltvguide-generator.dll
-
-# Keep the container alive
-tail -f /dev/null
+# keep container alive and tail log
+tail -f /var/log/cron.log
