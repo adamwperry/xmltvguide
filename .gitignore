@@ -62,6 +62,10 @@ src/output/
 
 # Visual Studio Code
 .vscode/
+
 .history/
 .vscode-test/
 .vscode-test/
+
+# macOS
+.DS_Store
