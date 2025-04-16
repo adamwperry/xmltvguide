@@ -55,3 +55,7 @@ nunit-*.xml
 
 # Output directory
 src/output/
+
+# Tarball files
+*.tar
+*.tar.gz
