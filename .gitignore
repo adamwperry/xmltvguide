@@ -52,3 +52,24 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Output directory
+src/output/
+
+# Tarball files
+*.tar
+*.tar.gz
+
+# Visual Studio Code
+.vscode/
+
+.history/
+.vscode-test/
+.vscode-test/
+
+# macOS
+.DS_Store
+
+# Output directory and specific files
+output/
+output/guide.xml
