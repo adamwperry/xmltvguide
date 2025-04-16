@@ -69,3 +69,7 @@ src/output/
 
 # macOS
 .DS_Store
+
+# Output directory and specific files
+output/
+output/guide.xml
