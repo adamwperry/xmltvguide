@@ -59,3 +59,9 @@ src/output/
 # Tarball files
 *.tar
 *.tar.gz
+
+# Visual Studio Code
+.vscode/
+.history/
+.vscode-test/
+.vscode-test/
