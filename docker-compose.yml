@@ -6,5 +6,5 @@ services:
       - "8586:80"
     restart: unless-stopped
     environment:
-      - EPG_URL=https://tvlistings.gracenote.com/api/grid?lineupId=&timespan=6&headendId=CA04919&country=USA&timezone=&device=X&postalCode=90012&isOverride=true&time={unixtime}&pref=16%2C128&userId=-&aid=lat&languagecode=en-us
+      - EPG_URL=https://example.com/api/time={unixtime}
       - CHANNEL_MAP_PATH=/app/ChannelMap.json
