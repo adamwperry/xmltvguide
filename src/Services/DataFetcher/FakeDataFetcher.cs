@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -19,5 +21,10 @@ public class FakeDataFetcher : DataFetcherBase
 
         string content = File.ReadAllText(url);
         return Task.FromResult(content);
+    }
+
+    public override Task<List<string>> FetchDataAsync(List<string> urls)
+    {
+        throw new NotImplementedException("This method is not implemented in the FakeDataFetcher class.");
     }
 }

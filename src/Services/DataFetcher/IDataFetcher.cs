@@ -1,8 +1,5 @@
-using System;
-using System.IO;
-using System.Net.Http;
+using System.Collections.Generic;
 using System.Threading.Tasks;
-using xmlTVGuide.Utilities;
 
 namespace xmlTVGuide.Services;
 
@@ -13,7 +10,5 @@ namespace xmlTVGuide.Services;
 public interface IDataFetcher
 {
     Task<string> FetchDataAsync(string url);
+    Task<List<string>> FetchDataAsync(List<string> urls);
 }
-
-
-

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
 using xmlTVGuide.Utilities;
@@ -26,6 +27,13 @@ public abstract class DataFetcherBase : IDataFetcher
     /// <param name="url">The URL to fetch data from.</param>
     /// <returns>Returns the content of the response as a string.</returns>
     public abstract Task<string> FetchDataAsync(string url);
+
+    /// <summary>
+    /// Fetches data from a list of URLs asynchronously.
+    /// </summary>
+    /// <param name="urls"><see cref="List{string}"/> of URLs to fetch data from.</param>
+    /// <returns><see cref="Task{List{string}}"/> containing the fetched data from each URL.</returns>
+    public abstract Task<List<string>> FetchDataAsync(List<string> urls);
 
     /// <summary>
     /// Initializes an HttpClient with default headers.
