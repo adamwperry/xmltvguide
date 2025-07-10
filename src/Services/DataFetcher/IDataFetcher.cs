@@ -11,4 +11,5 @@ public interface IDataFetcher
 {
     Task<string> FetchDataAsync(string url);
     Task<List<string>> FetchDataAsync(List<string> urls);
+    Task<bool> ValidateUrl(string url);
 }

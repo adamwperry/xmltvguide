@@ -91,10 +91,11 @@ public class ArgumentParser : IAppArguments
     /// <exception cref="ArgumentException"></exception>
     private void ValidateArguments(string url, string channelMapPath, string outputPath)
     {
-        // if (string.IsNullOrEmpty(url))
-        //     throw new ArgumentException("The URL (--url) must be provided or set via the EPG_URL environment variable.");
+        if (string.IsNullOrEmpty(url))
+            throw new ArgumentException("The URL (--url) must be provided or set via the EPG_URL environment variable.");
 
-        
+        //@todo validate Urls for one or more and the formats
+
 
         if (string.IsNullOrEmpty(channelMapPath))
             Console.WriteLine("Warning: No channel map path provided. Defaulting to an empty value.");

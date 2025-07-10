@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using xmlTVGuide.Models;
 using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace xmlTVGuide.Services.XMXTVBuilder.Parsers;
 
@@ -16,6 +17,12 @@ public class GuideTwoParser
     : ParserBase
     , IGuideParser
 {
+    private readonly IDataFetcher _dataFetcher;
+
+    public GuideTwoParser(IDataFetcher dataFetcher)
+    {
+        _dataFetcher = dataFetcher;
+    }
     // Uses this git repository for TV logos:
     private const string TvLogosBaseUrl =
         "https://raw.githubusercontent.com/tv-logo/tv-logos/refs/heads/main/countries/united-states/";
@@ -82,7 +89,7 @@ public class GuideTwoParser
             channelElement.Add(new XElement(DisplayNameKey, displayName));
 
             if (!string.IsNullOrWhiteSpace(logo))
-                channelElement.Add(BuildChannelIconElement(channelNode));
+                channelElement.Add(BuildChannelIconElementAsync(channelNode).GetAwaiter().GetResult());
 
             tv.Add(channelElement);
 
@@ -147,14 +154,14 @@ public class GuideTwoParser
     /// <returns>
     /// An <see cref="XElement"/> representing the channel icon, or null if the icon cannot be built.
     /// </returns>
-    private XElement? BuildChannelIconElement(JsonNode? channelNode)
+    private async Task<XElement?> BuildChannelIconElementAsync(JsonNode? channelNode)
     {
         if (channelNode is not JsonObject channel) return null;
 
         var networkName = channel[NameKey]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(networkName)) return null;
 
-        var fullUrl = BuildChannelIconUrl(networkName);
+        var fullUrl = await BuildChannelIconUrlAsync(networkName);
         return string.IsNullOrWhiteSpace(fullUrl)
             ? null
             : new XElement(IconKey, new XAttribute(SrcKey, fullUrl));
@@ -167,37 +174,15 @@ public class GuideTwoParser
     /// <returns>
     /// A <see cref="string"/> representing the URL of the channel icon, or an empty string if the URL is invalid.
     /// </returns>
-    private static string BuildChannelIconUrl(string networkName)
+    private async Task<string> BuildChannelIconUrlAsync(string networkName)
     {
         if (string.IsNullOrWhiteSpace(networkName))
             return string.Empty;
 
         var safeName = networkName.ToLowerInvariant().Replace(" ", "-"); // basic sanitization
         var url = $"{TvLogosBaseUrl}{safeName}-us.png";
-        return IsValidIconUrl(url) ? url : string.Empty;
-    }
-
-    /// <summary>
-    /// Validates if the provided URL is a valid icon URL by checking if it returns a successful HTTP response.
-    /// </summary>
-    /// <param name="url"><see cref="string"/> representing the URL to validate.</param>
-    /// <returns>
-    /// A <see cref="bool"/> indicating whether the URL is valid (returns a successful HTTP response).
-    /// </returns>
-    private static bool IsValidIconUrl(string? url)
-    {
-        if (string.IsNullOrWhiteSpace(url))
-            return false;
-
-        try
-        {
-            using var client = new HttpClient();
-            var response = client.Send(new HttpRequestMessage(HttpMethod.Head, url));
-            return response.IsSuccessStatusCode;
-        }
-        catch
-        {
-            return false;
-        }
+        return await _dataFetcher.ValidateUrl(url) 
+            ? url
+            : string.Empty;
     }
 }

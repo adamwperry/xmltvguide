@@ -55,6 +55,25 @@ public abstract class DataFetcherBase : IDataFetcher
     }
 
     /// <summary>
+    /// Validates the URL by making an HTTP GET request.
+    /// If the request is successful (status code 200-299), it returns true;
+    /// otherwise, it returns false.
+    /// This method is useful for checking if a URL is reachable before attempting to fetch data from it.
+    /// </summary>
+    /// <param name="url"> A url <see cref="string"/> to validate.</param>
+    /// <returns>
+    /// A <see cref="Task{bool}"/> indicating whether the URL is valid (true) or not (false).
+    /// </returns>
+    public async Task<bool> ValidateUrl(string url)
+    {
+        var response = await _client.GetAsync(url);
+        if (response.IsSuccessStatusCode)
+            return true;
+        else
+            return false;
+    }
+
+    /// <summary>
     /// Sets the Unix time in the URL.
     /// This method replaces the placeholder "{unixtime}" in the URL with the current Unix time.
     /// </summary>

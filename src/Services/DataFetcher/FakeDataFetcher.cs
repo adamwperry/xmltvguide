@@ -23,8 +23,10 @@ public class FakeDataFetcher : DataFetcherBase
         return Task.FromResult(content);
     }
 
+
     public override Task<List<string>> FetchDataAsync(List<string> urls)
     {
+        //@todo: Implement this method to fetch data from multiple files.
         throw new NotImplementedException("This method is not implemented in the FakeDataFetcher class.");
     }
 }
