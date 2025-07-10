@@ -3,7 +3,6 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using xmlTVGuide.Models;
-using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace xmlTVGuide.Services.XMXTVBuilder.Parsers;
