@@ -29,7 +29,7 @@ class Program
             serviceCollection.AddSingleton<IChannelMapLoader, ChannelMapLoader>();
             serviceCollection.AddTransient<IGuideParser, GuideOneParser>();
             serviceCollection.AddTransient<IGuideParser, GuideTwoParser>();
-
+            serviceCollection.AddTransient<IGuideParser, GuideThreeParser>();
 
             var argumentParser = serviceCollection.BuildServiceProvider().GetService<IAppArguments>();
             if (argumentParser == null)
@@ -56,7 +56,7 @@ class Program
             }
             else
             {
-                if(arguments.Urls.Count == 0)
+                if (arguments.Urls.Count == 0)
                 {
                     Console.WriteLine("Please provide a URL using --url=<url>.");
                     return;
