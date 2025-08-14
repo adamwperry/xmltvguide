@@ -44,8 +44,6 @@ class Program
             if (arguments.HelpSet)
                 return;
 
-
-            IDataFetcher? dataFetcherService = null;
             if (arguments.Fake)
             {
                 arguments.Urls = arguments.Fake && arguments.Urls.Count == 0
@@ -65,9 +63,8 @@ class Program
             }
 
             var serviceProvider = serviceCollection.BuildServiceProvider();
-            dataFetcherService = serviceProvider.GetService<IDataFetcher>() 
-                ?? throw new InvalidOperationException("Failed to resolve IDataFetcher service.");
 
+            var dataFetcherService = serviceProvider.GetService<IDataFetcher>();
             if (dataFetcherService == null)
             {
                 Console.WriteLine("Failed to resolve IDataFetcher service.");

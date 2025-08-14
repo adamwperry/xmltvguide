@@ -25,16 +25,23 @@ public class DataFetcher : DataFetcherBase
 
         if (string.IsNullOrEmpty(url))
             throw new ArgumentException("URL cannot be null or empty.", nameof(url));
-        
+
         if (url.Contains(UnixTimePlaceholder))
             url = SetUnixTime(url);
 
-        var response = await _client.GetAsync(url);
+        try
+        {
+            using var response = await _client.GetAsync(url);
+            if (response.IsSuccessStatusCode)
+                return await response.Content.ReadAsStringAsync();
 
-        if (response.IsSuccessStatusCode)
-            return await response.Content.ReadAsStringAsync();
-        else
             throw new HttpRequestException($"Failed to fetch data from {url}. Status code: {response.StatusCode}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching data from {url}: {ex.Message}");
+            return string.Empty;
+        }
     }
 
     /// <summary>

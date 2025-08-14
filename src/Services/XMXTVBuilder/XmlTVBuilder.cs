@@ -52,6 +52,9 @@ public class XmlTVBuilder : IXmlTVBuilder
 
         foreach (var data in epgData)
         {
+            if (string.IsNullOrWhiteSpace(data))
+                continue;
+
             var epg = JsonNode.Parse(data)?.AsObject()
                 ?? throw new Exception("Invalid JSON structure");
 

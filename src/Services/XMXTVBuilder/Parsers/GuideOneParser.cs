@@ -55,8 +55,6 @@ public class GuideOneParser
             if (tv.Elements(ChannelKey).Any(e => e.Attribute(IdKey)?.Value == id))
                 continue;
 
-            Console.WriteLine($"Current tv node count: {tv.Elements().Count()}");
-
             var channelElement = BuildChannelElement(channel, channelMap);
             if (channelElement != null)
             {
