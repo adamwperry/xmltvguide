@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+using System.Collections.Generic;
 
 namespace xmlTVGuide.Services;
 
@@ -9,5 +9,11 @@ namespace xmlTVGuide.Services;
 /// </summary>
 public interface IXmlTVBuilder
 {
-    void BuildXmlTV(JsonObject epgData, string channelMapPath, string outputPath);
+    /// <summary>
+    /// Builds an XML TV file from the provided EPG data.
+    /// </summary>
+    /// <param name="epgData"><see cref="List{string}"/> containing EPG data in JSON format.</param>
+    /// <param name="channelMapPath"><see cref="string"/> path to the channel map file.</param>
+    /// <param name="outputPath"><see cref="string"/> path where the XML TV file will be saved.</param>
+    void BuildXmlTV(List<string> epgData, string channelMapPath, string outputPath);
 }

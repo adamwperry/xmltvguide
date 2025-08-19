@@ -19,7 +19,35 @@ docker build -t xmltvguide-generator .
 Pass the URL you want to fetch EPG data from:
 
 ```bash
-docker run --rm -e EPG_URL="https://example.com/api/time{unixtime}" -e CHANNEL_MAP_PATH=/app/ChannelMap.json -v $(pwd)/ChannelMap.json:/app/ChannelMap.json -p 8585:80 xmltvguide-generator
+
+docker run --rm \
+  -e EPG_URL="https://example.com/api/time{unixtime}" \
+  -e CHANNEL_MAP_PATH=/app/ChannelMap.json \
+  -v $(pwd)/ChannelMap.json:/app/ChannelMap.json \
+  -p 8585:80 \
+  xmltvguide-generator
+
+```
+
+Pass multiple urls. 
+
+```bash
+
+docker run --rm \
+  -e EPG_URL_FILES=/app/epg_urls.txt \
+  -e CHANNEL_MAP_PATH=/app/ChannelMap.json \
+  -v $(pwd)/epg_urls.txt:/app/epg_urls.txt \
+  -v $(pwd)/ChannelMap.json:/app/ChannelMap.json \
+  -p 8585:80 xmltvguide-generator
+
+```
+
+Pass multiple urls via a file. This is needed for long list of urls.
+
+```bash
+
+docker run --rm -e EPG_URL_FILES=/app/epg_urls.txt -e CHANNEL_MAP_PATH=/app/ChannelMap.json -v $(pwd)/ChannelMap.json:/app/ChannelMap.json -p 8585:80 xmltvguide-generator
+
 ```
 
 > The output will be served at `http://localhost:8585/guide.xml`
@@ -79,8 +107,16 @@ services:
       - "8585:80"
     restart: unless-stopped
     environment:
-      - EPG_URL=https://example.com/api/time{unixtime}
+      # - EPG_URL=https://example.com/api/time={unixtime} - optional
+      - EPG_URL_FILES=/app/epg_urls.txt # this or EPG_URL must be used to set the EPG source(s)
       - CHANNEL_MAP_PATH=/app/ChannelMap.json
+```
+
+### C. epg_urls.txt format example 
+
+```txt
+https://example.com/api/time={unixtime} 
+https://example.com/hgml/guide?zip_code=30303
 ```
 
 ---
@@ -90,6 +126,12 @@ Your Docker image already supports scheduled runs via `cron`. Example:
 
 ```cron
 0 */2 * * * EPG_URL=https://example.com/api/time{unixtime} CHANNEL_MAP_PATH=/app/ChannelMap.json /usr/bin/dotnet /app/xmltvguide-generator.dll >> /var/log/cron.log 2>&1
+```
+
+or if you are using the epg_urls.txt file 
+
+```cron
+0 */2 * * * CHANNEL_MAP_PATH=/app/ChannelMap.json /usr/bin/dotnet /app/xmltvguide-generator.dll >> /var/log/cron.log 2>&1
 ```
 
 > This updates the guide **every 2 hours**.

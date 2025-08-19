@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
 using xmlTVGuide.Utilities;
@@ -28,6 +29,13 @@ public abstract class DataFetcherBase : IDataFetcher
     public abstract Task<string> FetchDataAsync(string url);
 
     /// <summary>
+    /// Fetches data from a list of URLs asynchronously.
+    /// </summary>
+    /// <param name="urls"><see cref="List{string}"/> of URLs to fetch data from.</param>
+    /// <returns><see cref="Task{List{string}}"/> containing the fetched data from each URL.</returns>
+    public abstract Task<List<string>> FetchDataAsync(List<string> urls);
+
+    /// <summary>
     /// Initializes an HttpClient with default headers.
     /// The User-Agent header is set to the specified user agent.
     /// The Accept, Accept-Language, and Connection headers are also set to common values.
@@ -44,6 +52,25 @@ public abstract class DataFetcherBase : IDataFetcher
         client.DefaultRequestHeaders.Add("Connection", "keep-alive");
 
         return client;
+    }
+
+    /// <summary>
+    /// Validates the URL by making an HTTP GET request.
+    /// If the request is successful (status code 200-299), it returns true;
+    /// otherwise, it returns false.
+    /// This method is useful for checking if a URL is reachable before attempting to fetch data from it.
+    /// </summary>
+    /// <param name="url"> A url <see cref="string"/> to validate.</param>
+    /// <returns>
+    /// A <see cref="Task{bool}"/> indicating whether the URL is valid (true) or not (false).
+    /// </returns>
+    public async Task<bool> ValidateUrl(string url)
+    {
+        var response = await _client.GetAsync(url);
+        if (response.IsSuccessStatusCode)
+            return true;
+        else
+            return false;
     }
 
     /// <summary>

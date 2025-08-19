@@ -1,0 +1,2 @@
+https://example.com/api/time={unixtime} 
+https://example.com/hgml/guide?zip_code=30303
