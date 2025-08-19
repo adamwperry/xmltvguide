@@ -18,8 +18,9 @@ RUN apt-get update && apt-get install -y nginx cron && rm /etc/nginx/sites-enabl
 # Copy published app
 COPY --from=build /app/out .
 
-# Copy channel map file
+# copy config files
 COPY ChannelMap.json /app/ChannelMap.json
+COPY epg_urls.txt /app/epg_urls.txt
 
 # Copy cron config and entry script
 COPY crontab.txt /etc/cron.d/epg-cron

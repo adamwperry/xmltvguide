@@ -1,4 +1,3 @@
-EPG_URL=https://example.com/api/time={unixtime}
 CHANNEL_MAP_PATH=/app/ChannelMap.json
 OUTPUT_PATH=/app/output/guide.xml
 
