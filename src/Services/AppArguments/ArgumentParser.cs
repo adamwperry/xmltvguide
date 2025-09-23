@@ -1,4 +1,3 @@
-
 using System;
 using System.IO;
 using System.Linq;
@@ -12,16 +11,18 @@ namespace xmlTVGuide.Services.ArgumentParser;
 /// The class also includes a help message that describes the usage of the application.
 /// </summary>
 public class ArgumentParser : IAppArguments
-{    
+{
     private const string HelpMessage = @"
     Usage:
     --fake               Use fake data for testing.
     --channelmap=<path>  Specify the path to the channel map JSON file.
     --url=<url>          Specify the URL or file path for the data source.
+    --epgUrlFiles=<path> Specify the path to the EPG URLs file.
     --output=<path>      Specify the output path for the generated XML file.
     --help               Display this help message.";
-    
+
     private const string EpgUrlEnv = "EPG_URL";
+    private const string EpgUrlFilesEnv = "EPG_URL_FILES";
     private const string ChannelMapPathEnv = "CHANNEL_MAP_PATH";
     private const string OutputPathEnv = "OUTPUT_PATH";
 
@@ -41,10 +42,12 @@ public class ArgumentParser : IAppArguments
         }
 
         var fake = args.Contains("--fake");
-        var url = GetArgumentValue(args, "--url=", EpgUrlEnv, string.Empty);
+
+        var urlArg = SetUrlVariable(args);
+        var url = string.IsNullOrEmpty(urlArg) ? GetArgumentValue(args, "--url=", EpgUrlEnv, string.Empty) : urlArg;
+
         var channelMapPath = GetArgumentValue(args, "--channelmap=", ChannelMapPathEnv, string.Empty);
         var outputPath = GetArgumentValue(args, "--output=", OutputPathEnv, Path.Combine(Directory.GetCurrentDirectory(), "output", "guide.xml"));
-
 
         ValidateArguments(url, channelMapPath, outputPath);
 
@@ -57,6 +60,45 @@ public class ArgumentParser : IAppArguments
         };
     }
 
+    /// <summary>
+    /// Sets the URL variable by checking command line arguments and environment variables.
+    /// It prioritizes the --url argument over the --epgUrlFiles argument.
+    /// </summary>
+    /// <param name="args">The command line arguments.</param>
+    /// <returns>The selected URL.</returns>
+    private string SetUrlVariable(string[] args)
+    {
+        var urls = GetArgumentValue(args, "--url=", EpgUrlEnv, string.Empty);
+        var urlFiles = GetArgumentValue(args, "--epgUrlFiles=", EpgUrlFilesEnv, string.Empty);
+
+        if (!string.IsNullOrEmpty(urls))
+            return urls;
+
+        if (!string.IsNullOrEmpty(urlFiles))
+        {
+            if (!File.Exists(urlFiles))
+            {
+                Console.WriteLine($"The specified EPG URL file does not exist: {urlFiles}");
+                return string.Empty;
+            }
+
+            try
+            {
+                var fileUrls = File.ReadAllLines(urlFiles)
+                    .Select(line => line.Trim())
+                    .Where(line => !string.IsNullOrEmpty(line) && !line.StartsWith("#")); // Ignore empty lines and comments
+
+                return string.Join(",", fileUrls);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error reading EPG URL file: {ex.Message}");
+                return string.Empty;
+            }
+        }
+
+        return string.Empty;
+    }
 
     /// <summary>
     /// Retrieves the value of an argument from the command line arguments or environment variables.
@@ -71,7 +113,7 @@ public class ArgumentParser : IAppArguments
         var arg = args.FirstOrDefault(a => a.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
         if (!string.IsNullOrEmpty(arg))
             return arg.Substring(prefix.Length);
-        
+
         if (!string.IsNullOrEmpty(envVariable))
         {
             var envValue = Environment.GetEnvironmentVariable(envVariable);
@@ -96,7 +138,6 @@ public class ArgumentParser : IAppArguments
 
         //@todo validate Urls for one or more and the formats
 
-
         if (string.IsNullOrEmpty(channelMapPath))
             Console.WriteLine("Warning: No channel map path provided. Defaulting to an empty value.");
 
@@ -110,5 +151,6 @@ public class ArgumentParser : IAppArguments
     private void DisplayHelp()
     {
         Console.WriteLine(HelpMessage);
+        Environment.Exit(0);
     }
 }
