@@ -18,6 +18,8 @@ class Program
     {
         try
         {
+            Console.WriteLine("Starting XMLTV Guide Generator...");
+            Console.WriteLine($"EPG_URL_FILES: {Environment.GetEnvironmentVariable("EPG_URL_FILES")}");
             Console.WriteLine($"EPG_URL: {Environment.GetEnvironmentVariable("EPG_URL")}");
             Console.WriteLine($"CHANNEL_MAP_PATH: {Environment.GetEnvironmentVariable("CHANNEL_MAP_PATH")}");
             Console.WriteLine($"OUTPUT_PATH: {Environment.GetEnvironmentVariable("OUTPUT_PATH")}");

@@ -84,6 +84,13 @@ You can also compress it:
 gtar -czvf xmltvguide.tar.gz Dockerfile crontab.txt entrypoint.sh src xmltvguide-generator.csproj xmltvguide-generator.sln ChannelMap.json
 ```
 
+or 
+```bash 
+gtar -czvf xmltvguide.tar.gz Dockerfile crontab.txt entrypoint.sh src xmltvguide-generator.csproj xmltvguide-generator.sln ChannelMap.json epg_urls.txt
+
+```
+
+
 ---
 
 ## 5. Deploy in Portainer
