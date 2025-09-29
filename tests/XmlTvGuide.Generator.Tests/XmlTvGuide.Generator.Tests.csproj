@@ -15,4 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\xmltvguide-generator.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="TestData\*.json" CopyToOutputDirectory="Always" />
+  </ItemGroup>
 </Project>

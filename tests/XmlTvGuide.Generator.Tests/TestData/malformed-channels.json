@@ -1,0 +1,9 @@
+{
+    "channels": [
+        { "channel": { "name": "", "channelId": "10179" } },
+        { "channel": { "name": "CNN", "channelId": "" } },
+        { "channel": { "channelId": "12500" } },
+        { "channel": { "name": "Discovery Channel" } },
+        { "invalidStructure": "test" }
+    ]
+}

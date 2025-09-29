@@ -1,9 +1,4 @@
-using System;
-using System.IO;
-using System.Linq;
-using System.Collections.Generic;
 using FluentAssertions;
-using xmlTVGuide.Models;
 using xmlTVGuide.Services.ArgumentParser;
 using Xunit;
 
