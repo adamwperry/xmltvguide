@@ -1,0 +1,44 @@
+{
+    "channels": [
+        {
+            "channelId": "12345",
+            "callSign": "AWP",
+            "channelNo": "1",
+            "thumbnail": "https://example.com/awp-logo.png",
+            "events": [
+                {
+                    "startTime": "2025-09-30T08:00:00Z",
+                    "endTime": "2025-09-30T09:00:00Z",
+                    "program": {
+                        "title": "Morning News",
+                        "shortDesc": "Local and national news coverage"
+                    }
+                },
+                {
+                    "startTime": "2025-09-30T09:00:00Z",
+                    "endTime": "2025-09-30T10:00:00Z",
+                    "program": {
+                        "title": "Talk Show",
+                        "shortDesc": "Celebrity interviews and entertainment"
+                    }
+                }
+            ]
+        },
+        {
+            "channelId": "67890",
+            "callSign": "WIP",
+            "channelNo": "2", 
+            "thumbnail": "/wip-logo.png",
+            "events": [
+                {
+                    "startTime": "2025-09-30T08:00:00Z",
+                    "endTime": "2025-09-30T08:30:00Z",
+                    "program": {
+                        "title": "Weather Update",
+                        "shortDesc": "Current weather conditions"
+                    }
+                }
+            ]
+        }
+    ]
+}
