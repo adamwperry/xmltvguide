@@ -1,0 +1,48 @@
+{
+    "data": {
+        "items": [
+            {
+                "channel": {
+                    "sourceId": "12345",
+                    "networkName": "Valid Network"
+                },
+                "programSchedules": [
+                    {
+                        "startTime": 1696089600,
+                        "endTime": 1696093200,
+                        "title": "Valid Show"
+                    }
+                ]
+            },
+            {
+                "channel": {
+                    "networkName": "Missing Source ID"
+                },
+                "programSchedules": []
+            },
+            {
+                "channel": {
+                    "sourceId": "",
+                    "networkName": "Empty Source ID"
+                },
+                "programSchedules": []
+            },
+            {
+                "channel": {
+                    "sourceId": "99999"
+                },
+                "programSchedules": [
+                    {
+                        "startTime": "invalid-time",
+                        "endTime": 1696093200,
+                        "title": "Invalid Start Time"
+                    },
+                    {
+                        "startTime": 1696089600,
+                        "endTime": 1696093200
+                    }
+                ]
+            }
+        ]
+    }
+}
