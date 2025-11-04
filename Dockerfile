@@ -1,15 +1,15 @@
 # Dockerfile for xmltvguide-generator
 
-# Use .NET 6 SDK to build the app
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
+# Use .NET 8 SDK to build the app
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /app
 
 COPY . .
 
-RUN dotnet publish xmltvguide-generator.sln -c Release -o /app/out
+RUN dotnet publish xmltvguide-generator.csproj -c Release -o /app/out
 
 # Runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:6.0
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 
 # Install nginx and cron
