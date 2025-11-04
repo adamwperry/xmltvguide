@@ -1,0 +1,47 @@
+{
+    "items": [
+        {
+            "content": {
+                "streams": [
+                    {
+                        "channel": "awp-1",
+                        "title": "Valid Show",
+                        "start_date": "2023-09-30T08:00:00Z",
+                        "end_date": "2023-09-30T09:00:00Z"
+                    },
+                    {
+                        "title": "Missing Channel",
+                        "start_date": "2023-09-30T09:00:00Z",
+                        "end_date": "2023-09-30T10:00:00Z"
+                    },
+                    {
+                        "channel": "wip-2",
+                        "start_date": "2023-09-30T10:00:00Z",
+                        "end_date": "2023-09-30T11:00:00Z"
+                    },
+                    {
+                        "channel": "awp-1",
+                        "title": "Invalid Date Show",
+                        "start_date": "invalid-date",
+                        "end_date": "2023-09-30T12:00:00Z"
+                    },
+                    {
+                        "channel": "",
+                        "title": "Empty Channel",
+                        "start_date": "2023-09-30T13:00:00Z",
+                        "end_date": "2023-09-30T14:00:00Z"
+                    }
+                ]
+            }
+        },
+        {
+            "content": {
+                "streams": "not an array"
+            }
+        },
+        {
+            "content": {}
+        },
+        {}
+    ]
+}
