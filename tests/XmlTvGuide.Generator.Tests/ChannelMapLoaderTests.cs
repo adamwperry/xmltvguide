@@ -32,13 +32,13 @@ public class ChannelMapLoaderTests : IDisposable
         result.Should().NotBeNull();
         result.Should().HaveCount(3);
         
-        result[0].Name.Should().Be("ESPN");
+        result[0].Name.Should().Be("APW Sports");
         result[0].ChannelId.Should().Be("10179");
         
-        result[1].Name.Should().Be("CNN");
+        result[1].Name.Should().Be("AWP");
         result[1].ChannelId.Should().Be("10142");
         
-        result[2].Name.Should().Be("Discovery Channel");
+        result[2].Name.Should().Be("WIP");
         result[2].ChannelId.Should().Be("12500");
     }
 
