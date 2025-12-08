@@ -1,0 +1,45 @@
+{
+    "items": [
+        {
+            "content": {
+                "streams": [
+                    {
+                        "channel": "awp-1",
+                        "title": "Morning Show",
+                        "desc": "Daily morning news and entertainment",
+                        "thumbnail": "https://example.com/morning-show.jpg",
+                        "start_date": "2023-09-30T08:00:00Z",
+                        "end_date": "2023-09-30T09:00:00Z"
+                    },
+                    {
+                        "channel": "awp-1",
+                        "title": "Weather Update",
+                        "desc": "Local weather forecast",
+                        "start_date": "2023-09-30T09:00:00Z",
+                        "end_date": "2023-09-30T09:30:00Z"
+                    },
+                    {
+                        "channel": "wip-2",
+                        "title": "Sports News",
+                        "desc": "Latest sports updates and scores",
+                        "thumbnail": "https://example.com/sports.jpg",
+                        "start_date": "2023-09-30T10:00:00Z",
+                        "end_date": "2023-09-30T11:00:00Z"
+                    }
+                ]
+            }
+        },
+        {
+            "content": {
+                "streams": [
+                    {
+                        "channel": "awp-1",
+                        "title": "Talk Show",
+                        "start_date": "2023-09-30T11:00:00Z",
+                        "end_date": "2023-09-30T12:00:00Z"
+                    }
+                ]
+            }
+        }
+    ]
+}

@@ -44,7 +44,11 @@ class Program
             var arguments = argumentParser.ParseArguments(args);
 
             if (arguments.HelpSet)
+            {
+                Console.WriteLine(arguments.HelpText);
+                Environment.Exit(0);
                 return;
+            }
 
             if (arguments.Fake)
             {

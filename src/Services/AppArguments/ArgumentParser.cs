@@ -1,6 +1,3 @@
-using System;
-using System.IO;
-using System.Linq;
 using xmlTVGuide.Models;
 
 namespace xmlTVGuide.Services.ArgumentParser;
@@ -36,10 +33,7 @@ public class ArgumentParser : IAppArguments
     public ParsedArguments ParseArguments(string[] args)
     {
         if (args.Contains("--help"))
-        {
-            DisplayHelp();
-            return new ParsedArguments { HelpSet = true };
-        }
+            return new ParsedArguments { HelpSet = true, HelpText = HelpMessage };
 
         var fake = args.Contains("--fake");
 
@@ -108,7 +102,7 @@ public class ArgumentParser : IAppArguments
     /// <param name="envVariable">The name of the environment variable to check if the argument is not found.</param>
     /// <param name="defaultValue">The default value to return if the argument is not found.</param>
     /// <returns>The value of the argument, environment variable, or default value.</returns>
-    private string GetArgumentValue(string[] args, string prefix, string envVariable = null, string defaultValue = "")
+    private string GetArgumentValue(string[] args, string prefix, string? envVariable = null, string defaultValue = "")
     {
         var arg = args.FirstOrDefault(a => a.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
         if (!string.IsNullOrEmpty(arg))
@@ -143,14 +137,5 @@ public class ArgumentParser : IAppArguments
 
         if (string.IsNullOrEmpty(outputPath))
             throw new ArgumentException("The output path (--output) must be provided.");
-    }
-
-    /// <summary>
-    /// Displays the help message to the console.
-    /// </summary>
-    private void DisplayHelp()
-    {
-        Console.WriteLine(HelpMessage);
-        Environment.Exit(0);
     }
 }

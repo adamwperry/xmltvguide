@@ -1,0 +1,41 @@
+{
+    "data": {
+        "items": [
+            {
+                "channel": {
+                    "sourceId": "12345",
+                    "networkName": "AWP Network",
+                    "name": "awp-network",
+                    "logo": "https://example.com/awp-logo.png"
+                },
+                "programSchedules": [
+                    {
+                        "startTime": 1696089600,
+                        "endTime": 1696093200,
+                        "title": "Morning News"
+                    },
+                    {
+                        "startTime": 1696093200,
+                        "endTime": 1696096800,
+                        "title": "Talk Show"
+                    }
+                ]
+            },
+            {
+                "channel": {
+                    "sourceId": "67890",
+                    "networkName": "WIP Network",
+                    "name": "wip-network",
+                    "logo": "https://example.com/wip-logo.png"
+                },
+                "programSchedules": [
+                    {
+                        "startTime": 1696089600,
+                        "endTime": 1696091400,
+                        "title": "Weather Update"
+                    }
+                ]
+            }
+        ]
+    }
+}

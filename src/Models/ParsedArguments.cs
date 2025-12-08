@@ -9,4 +9,5 @@ public class ParsedArguments
     public string? ChannelMapPath { get; set; }
     public string OutputPath { get; set; } = string.Empty;
     public bool HelpSet { get; set; }
+    public string HelpText { get; set; } = string.Empty;
 }

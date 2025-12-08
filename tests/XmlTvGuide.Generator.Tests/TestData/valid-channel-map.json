@@ -1,0 +1,7 @@
+{
+    "channels": [
+        { "channel": { "name": "APW Sports", "channelId": "10179" } },
+        { "channel": { "name": "AWP", "channelId": "10142" } },
+        { "channel": { "name": "WIP", "channelId": "12500" } }
+    ]
+}

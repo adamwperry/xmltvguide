@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "xmltvguide-generator", "xml
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0BFB4EEB-CA4F-452F-A235-9D2ADCB530AA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XmlTvGuide.Generator.Tests", "tests\XmlTvGuide.Generator.Tests\XmlTvGuide.Generator.Tests.csproj", "{B82B9F81-CD06-48E5-BD2D-E570E76D5589}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -17,11 +19,18 @@ Global
 		{6225E0B2-4DEE-340C-A745-AC5DBAF68230}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6225E0B2-4DEE-340C-A745-AC5DBAF68230}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6225E0B2-4DEE-340C-A745-AC5DBAF68230}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B82B9F81-CD06-48E5-BD2D-E570E76D5589}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B82B9F81-CD06-48E5-BD2D-E570E76D5589}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B82B9F81-CD06-48E5-BD2D-E570E76D5589}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B82B9F81-CD06-48E5-BD2D-E570E76D5589}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {CC5A1BA8-C3DA-4DA0-AF27-01DF58F7396B}
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{B82B9F81-CD06-48E5-BD2D-E570E76D5589} = {0BFB4EEB-CA4F-452F-A235-9D2ADCB530AA}
 	EndGlobalSection
 EndGlobal
