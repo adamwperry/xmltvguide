@@ -38,12 +38,6 @@
                         View XML
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a href="#" class="nav-link">
-                        <img src="/images/icons/iconSettings.png" alt="Settings" class="nav-icon">
-                        Settings
-                    </a>
-                </li>
             </ul>
         </nav>
     </div>
@@ -53,11 +47,6 @@
             <div class="header-left">
                 <h1>Dashboard</h1>
                 <div class="header-subtitle">XMLTV Guide Generator Configuration & Status</div>
-            </div>
-            <div class="header-actions">
-                <button id="sidebar-toggle" class="btn-secondary" type="button" aria-controls="sidebar" aria-expanded="false">
-                    Menu
-                </button>
             </div>
         </div>
         
@@ -147,6 +136,32 @@
                     <div class="card-title">Rebuild Guide</div>
                     <div class="card-subtitle">Generate new EPG data</div>
                     <button onclick="rebuildGuide()" class="btn-primary"><img src="/images/icons/iconRefresh.png" alt="Rebuild" class="btn-icon"> Rebuild</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cron Logs Panel -->
+        <div class="content-grid">
+            <div class="card cron-logs-card">
+                <div class="card-header">
+                    <div class="card-header-title">
+                        <img src="/images/icons/iconLog.png" alt="Logs" class="icon-log"> Cron Run History
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="card-header-actions">
+                        <button onclick="loadCronLogs()" class="btn-secondary btn-sm"><img src="/images/icons/iconRefresh.png" alt="Refresh" class="btn-icon"> Refresh</button>
+                        <button onclick="clearCronLogs()" class="btn-danger btn-sm">Clear</button>
+                    </div>
+                    <div id="cron-logs-status" class="status hidden"></div>
+                    <div class="cron-logs-container">
+                        <div id="cron-logs-empty" class="empty-state">
+                            <img src="/images/icons/iconLog.png" alt="No logs" class="icon-log">
+                            <div class="empty-title">No cron runs logged yet</div>
+                            <div class="empty-subtitle">Cron job runs will appear here when they execute</div>
+                        </div>
+                        <div id="cron-logs-list" class="cron-logs-list hidden"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -276,28 +291,39 @@
                     const date = new Date(lastModified);
                     const now = new Date();
                     const diffMinutes = Math.floor((now - date) / 60000);
-
-                    if (diffMinutes < 60) {
-                        document.getElementById('last-update').textContent = diffMinutes + 'm';
-                        document.getElementById('update-status').innerHTML = `
-                            <span class="indicator success"></span>
-                            ${diffMinutes} minutes ago
-                        `;
+                    
+                    // Format: Feb 13, 8:45 PM
+                    const timeString = date.toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                    
+                    document.getElementById('last-update').textContent = timeString;
+                    
+                    // Show indicator based on how recent
+                    const indicator = diffMinutes < 360 ? 'success' : diffMinutes < 1440 ? 'warning' : 'error';
+                    
+                    // Format relative time
+                    let relativeTime;
+                    if (diffMinutes < 1) {
+                        relativeTime = 'Just now';
+                    } else if (diffMinutes < 60) {
+                        relativeTime = `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} ago`;
                     } else if (diffMinutes < 1440) {
                         const hours = Math.floor(diffMinutes / 60);
-                        document.getElementById('last-update').textContent = hours + 'h';
-                        document.getElementById('update-status').innerHTML = `
-                            <span class="indicator ${hours < 6 ? 'success' : 'warning'}"></span>
-                            ${hours} hours ago
-                        `;
+                        relativeTime = `${hours} hour${hours !== 1 ? 's' : ''} ago`;
                     } else {
                         const days = Math.floor(diffMinutes / 1440);
-                        document.getElementById('last-update').textContent = days + 'd';
-                        document.getElementById('update-status').innerHTML = `
-                            <span class="indicator error"></span>
-                            ${days} days ago
-                        `;
+                        relativeTime = `${days} day${days !== 1 ? 's' : ''} ago`;
                     }
+                    
+                    document.getElementById('update-status').innerHTML = `
+                        <span class="indicator ${indicator}"></span>
+                        ${relativeTime}
+                    `;
                 } else {
                     document.getElementById('last-update').textContent = 'Never';
                     document.getElementById('update-status').innerHTML = `
@@ -358,18 +384,24 @@
                 container?.classList.add('loading');
 
                 const content = epgContent.value;
-                const response = await apiCall('epg-urls', 'POST', { content });
+                const response = await fetch('/api/config/epg-urls', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
 
-                if (response?.error) {
-                    let msg = `Error: ${response.error}`;
-                    if (Array.isArray(response.invalidUrls) && response.invalidUrls.length) {
-                        msg += `. Invalid URLs: ${response.invalidUrls.join(', ')}`;
+                const result = await response.json();
+
+                if (!response.ok || result?.error) {
+                    let msg = `Error: ${result.error || 'Unknown error'}`;
+                    if (Array.isArray(result.invalidUrls) && result.invalidUrls.length) {
+                        msg += `. Invalid URLs: ${result.invalidUrls.join(', ')}`;
                     }
                     showStatus('epg-status', msg, 'error');
                     return;
                 }
 
-                showStatus('epg-status', response?.message ?? 'Saved.', 'success');
+                showStatus('epg-status', result?.message ?? 'Saved.', 'success');
                 await loadStatus(); // refresh status
             } catch (error) {
                 showStatus('epg-status', `Error saving EPG URLs: ${error.message}`, 'error');
@@ -486,7 +518,10 @@
                 if (response.ok) {
                     const result = await response.json();
                     alert(result.message);
-                    await loadStatus(); // Refresh status immediately
+                    // Force a full page reload to get fresh data
+                    setTimeout(() => {
+                        location.reload();
+                    }, 500);
                 } else {
                     const errorText = await response.text();
                     alert('Error: ' + errorText);
@@ -496,34 +531,101 @@
             }
         }
 
+        // Cron logs functions
+        async function loadCronLogs() {
+            try {
+                const response = await fetch('/api/cronlogs?count=100');
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to load cron logs: ${response.status}`);
+                }
+
+                const logs = await response.json();
+                displayCronLogs(logs);
+                showStatus('cron-logs-status', 'Cron logs loaded successfully', 'success');
+            } catch (error) {
+                console.error('Error loading cron logs:', error);
+                showStatus('cron-logs-status', `Error loading cron logs: ${error.message}`, 'error');
+                displayCronLogs([]);
+            }
+        }
+
+        function displayCronLogs(logs) {
+            const emptyState = document.getElementById('cron-logs-empty');
+            const logsList = document.getElementById('cron-logs-list');
+
+            if (!logs || logs.length === 0) {
+                emptyState.classList.remove('hidden');
+                logsList.classList.add('hidden');
+                logsList.innerHTML = ''; // Clear any existing content
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            logsList.classList.remove('hidden');
+
+            // Sort logs by timestamp descending (newest first)
+            const sortedLogs = logs.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            logsList.innerHTML = sortedLogs.map(log => {
+                const timestamp = new Date(log.timestamp).toLocaleString();
+                const statusClass = log.success ? 'log-success' : 'log-error';
+                const statusText = log.success ? 'SUCCESS' : 'ERROR';
+                
+                return `
+                    <div class="cron-log-entry ${statusClass}">
+                        <div class="log-header">
+                            <div class="log-timestamp">${timestamp}</div>
+                            <div class="log-status log-status-${log.success ? 'success' : 'error'}">${statusText}</div>
+                        </div>
+                        <div class="log-message">${escapeHtml(log.message)}</div>
+                        ${log.errorMessage ? `<div class="log-error">${escapeHtml(log.errorMessage)}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function clearCronLogs() {
+            if (!confirm('Are you sure you want to clear all cron logs? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/cronlogs', {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    await loadCronLogs(); // Refresh the display
+                    showStatus('cron-logs-status', 'Cron logs cleared successfully', 'success');
+                } else {
+                    throw new Error(`Failed to clear logs: ${response.status}`);
+                }
+            } catch (error) {
+                console.error('Error clearing cron logs:', error);
+                showStatus('cron-logs-status', `Error clearing cron logs: ${error.message}`, 'error');
+            }
+        }
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async function() {
             await loadStatus();
             await loadEpgUrls();
             await loadChannelMap();
-
-            const sidebar = document.getElementById('sidebar');
-            const sidebarToggle = document.getElementById('sidebar-toggle');
-
-            if (sidebar && sidebarToggle) {
-                sidebarToggle.addEventListener('click', () => {
-                    const isOpen = sidebar.classList.toggle('open');
-                    sidebarToggle.setAttribute('aria-expanded', String(isOpen));
-                });
-
-                document.querySelectorAll('.nav-link').forEach(link => {
-                    link.addEventListener('click', () => {
-                        if (window.innerWidth <= 1024) {
-                            sidebar.classList.remove('open');
-                            sidebarToggle.setAttribute('aria-expanded', 'false');
-                        }
-                    });
-                });
-            }
+            await loadCronLogs();
         });
 
-        // Auto-refresh status every 30 seconds
-        setInterval(loadStatus, 30000);
+        // Auto-refresh status and cron logs every 1 minute
+        setInterval(() => {
+            loadStatus();
+            loadCronLogs();
+        }, 60000);
     </script>
 </body>
 </html>

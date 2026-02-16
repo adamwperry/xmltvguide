@@ -52,14 +52,16 @@ public class ConfigController : ControllerBase
     {
         try
         {
-            // Validate URLs
+            // Basic validation - just check URLs start with http/https
             var lines = request.Content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             var invalidUrls = new List<string>();
 
             foreach (var line in lines)
             {
                 var url = line.Trim();
-                if (!string.IsNullOrEmpty(url) && !Uri.IsWellFormedUriString(url, UriKind.Absolute))
+                if (!string.IsNullOrEmpty(url) && 
+                    !url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && 
+                    !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                 {
                     invalidUrls.Add(url);
                 }
@@ -67,7 +69,7 @@ public class ConfigController : ControllerBase
 
             if (invalidUrls.Any())
             {
-                return BadRequest(new { error = "Invalid URLs found", invalidUrls });
+                return BadRequest(new { error = "Invalid URLs found - must start with http:// or https://", invalidUrls });
             }
 
             var normalizedContent = request.Content.Replace("\r\n", "\n");

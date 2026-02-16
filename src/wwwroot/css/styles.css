@@ -193,6 +193,13 @@ body {
     font-size: 16px;
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.card-header-title {
+    display: flex;
+    align-items: center;
     gap: 8px;
 }
 
@@ -342,6 +349,10 @@ a:focus-visible {
     color: rgba(255, 255, 255, 0.6);
     margin-bottom: 16px;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .loading {
@@ -378,12 +389,70 @@ a:focus-visible {
     
     button {
         width: 100%;
+        padding: 12px 16px;
+        font-size: 14px;
     }
     
     .header {
         flex-direction: column;
         align-items: flex-start;
         gap: 16px;
+        padding: 16px;
+    }
+    
+    .header h1 {
+        font-size: 24px;
+    }
+    
+    .header-subtitle {
+        font-size: 13px;
+    }
+    
+    .action-cards-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        margin-top: 24px;
+    }
+    
+    .card {
+        border-radius: 8px;
+    }
+    
+    .card-header {
+        padding: 16px;
+        font-size: 15px;
+    }
+    
+    .card-body {
+        padding: 16px;
+    }
+    
+    .card-body-center {
+        padding: 16px;
+    }
+    
+    textarea {
+        min-height: 200px;
+        font-size: 12px;
+        padding: 12px;
+    }
+    
+    .btn-primary-large {
+        padding: 12px 20px;
+        font-size: 15px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .stat-card {
+        padding: 16px;
+    }
+    
+    .stat-value {
+        font-size: 28px;
     }
 }
 
@@ -435,6 +504,12 @@ a:focus-visible {
     margin-right: 8px;
 }
 
+.icon-log {
+    width: 24px;
+    height: 27px;
+    margin-right: 8px;
+}
+
 .stat-icon img {
     width: 48px;
     height: 48px;
@@ -459,6 +534,13 @@ a img.btn-icon {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
+}
+
+@media (max-width: 640px) {
+    .action-cards-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px;
+    }
 }
 
 .card-body-center {
@@ -510,4 +592,251 @@ a img.btn-icon {
     width: 16px;
     height: 16px;
     vertical-align: middle;
+}
+
+/* Cron Logs Styles */
+.cron-logs-card {
+    grid-column: 1 / -1;
+    margin-top: 32px;
+}
+
+.card-body .card-header-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.card-header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    border: 1px solid rgba(220, 38, 38, 0.3);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
+    border-color: rgba(220, 38, 38, 0.5);
+}
+
+.cron-logs-container {
+    max-height: 500px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 64px 32px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.empty-icon {
+    width: 72px;
+    height: 72px;
+    opacity: 0.2;
+    margin-bottom: 20px;
+}
+
+.empty-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.empty-subtitle {
+    font-size: 15px;
+    color: rgba(255, 255, 255, 0.4);
+    line-height: 1.5;
+}
+
+.cron-logs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 4px;
+    overflow-x: hidden;
+}
+
+.cron-log-entry {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 0;
+    transition: all 0.2s ease;
+    overflow: hidden;
+    box-sizing: border-box;
+    max-width: 100%;
+}
+
+.cron-log-entry:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.cron-log-entry.log-success {
+    border-left: 4px solid #10b981;
+    background: rgba(16, 185, 129, 0.02);
+}
+
+.cron-log-entry.log-error {
+    border-left: 4px solid #ef4444;
+    background: rgba(239, 68, 68, 0.02);
+}
+
+.log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.log-timestamp {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-weight: 500;
+}
+
+.log-status {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.log-status-success {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.log-status-error {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.log-message {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.5;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-weight: 400;
+}
+
+.log-error {
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 6px;
+    font-size: 13px;
+    color: #fca5a5;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    line-height: 1.4;
+}
+
+/* Responsive adjustments for cron logs */
+@media (max-width: 768px) {
+    .cron-logs-card {
+        margin-top: 20px;
+    }
+    
+    .log-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+    
+    .card-header-actions {
+        flex-direction: column;
+        width: 100%;
+        gap: 8px;
+    }
+    
+    .btn-sm {
+        width: 100%;
+        justify-content: center;
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+    
+    .cron-logs-container {
+        padding: 4px;
+        max-height: 400px;
+        overflow-x: hidden;
+    }
+    
+    .cron-logs-list {
+        padding: 8px 2px;
+    }
+    
+    .cron-log-entry {
+        padding: 12px;
+        margin: 0;
+        border-radius: 8px;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .log-timestamp {
+        font-size: 11px;
+        word-break: break-all;
+    }
+    
+    .log-message {
+        font-size: 13px;
+        line-height: 1.6;
+        word-break: break-word;
+    }
+    
+    .log-status {
+        padding: 4px 10px;
+        font-size: 10px;
+        white-space: nowrap;
+    }
+    
+    .log-error {
+        margin-top: 10px;
+        padding: 10px;
+        font-size: 12px;
+        line-height: 1.5;
+        word-break: break-word;
+    }
+    
+    .empty-state {
+        padding: 40px 16px;
+    }
+    
+    .empty-icon {
+        width: 48px;
+        height: 48px;
+    }
+    
+    .empty-title {
+        font-size: 16px;
+    }
+    
+    .empty-subtitle {
+        font-size: 13px;
+    }
 }

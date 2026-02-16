@@ -2,6 +2,7 @@ using xmlTVGuide.Services;
 using xmlTVGuide.Services.ArgumentParser;
 using xmlTVGuide.Services.FileServices;
 using xmlTVGuide.Services.ChannelMap;
+using xmlTVGuide.Services.CronLogger;
 using xmlTVGuide.Services.XMXTVBuilder.Parsers;
 using System.Xml.Linq;
 
@@ -29,6 +30,7 @@ public class Startup
         services.AddSingleton<IFileService, XMLFileService<XDocument>>();
         services.AddSingleton<IChannelMapLoader, ChannelMapLoader>();
         services.AddSingleton<IDataFetcher, DataFetcher>();
+        services.AddSingleton<ICronLogger, CronLogger>();
         services.AddTransient<IGuideParser, GuideOneParser>();
         services.AddTransient<IGuideParser, GuideTwoParser>();
         services.AddTransient<IGuideParser, GuideThreeParser>();
@@ -46,7 +48,18 @@ public class Startup
         
         // Serve static files (our HTML interface)
         app.UseDefaultFiles();
-        app.UseStaticFiles();
+        
+        var staticFileOptions = new StaticFileOptions
+        {
+            OnPrepareResponse = ctx =>
+            {
+                // Disable caching for development
+                ctx.Context.Response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");
+                ctx.Context.Response.Headers.Append("Pragma", "no-cache");
+                ctx.Context.Response.Headers.Append("Expires", "0");
+            }
+        };
+        app.UseStaticFiles(staticFileOptions);
 
         app.UseEndpoints(endpoints =>
         {

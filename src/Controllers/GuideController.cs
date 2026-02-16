@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using System.IO;
+using xmlTVGuide.Services.CronLogger;
 using IOFile = System.IO.File;
 
 namespace xmlTVGuide.Controllers;
@@ -7,6 +7,13 @@ namespace xmlTVGuide.Controllers;
 [Route("")]
 public class GuideController : ControllerBase
 {
+    private readonly ICronLogger _cronLogger;
+
+    public GuideController(ICronLogger cronLogger)
+    {
+        _cronLogger = cronLogger;
+    }
+    
     [HttpGet("guide.xml")]
     public async Task<IActionResult> GetGuideXml()
     {
@@ -59,6 +66,8 @@ public class GuideController : ControllerBase
             if (!IOFile.Exists(channelMapPath))
                 return BadRequest("Channel map file not found. Please configure channel mapping first.");
 
+            // Log the manual rebuild
+            _cronLogger.LogCronRun("Manual EPG rebuild initiated via web interface", DateTime.UtcNow, true);
 
             // Run EPG generation in background
             _ = Task.Run(async () =>
@@ -70,10 +79,15 @@ public class GuideController : ControllerBase
                         $"--channelmap={channelMapPath}",
                         $"--output={outputPath}"
                     });
+                    
+                    // Log successful completion
+                    _cronLogger.LogCronRun("Manual EPG rebuild completed successfully", DateTime.UtcNow, true);
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"EPG generation error: {ex.Message}");
+                    // Log the error
+                    _cronLogger.LogCronRun("Manual EPG rebuild failed", DateTime.UtcNow, false, ex.Message);
                 }
             });
 
@@ -81,6 +95,8 @@ public class GuideController : ControllerBase
         }
         catch (Exception ex)
         {
+            // Log the error
+            _cronLogger.LogCronRun("Failed to start manual EPG rebuild", DateTime.UtcNow, false, ex.Message);
             return StatusCode(500, $"Error starting EPG rebuild: {ex.Message}");
         }
     }
