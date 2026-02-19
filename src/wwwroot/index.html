@@ -43,6 +43,12 @@
                 </li>
             </ul>
         </nav>
+        <div class="sidebar-footer">
+            <div class="version-info">
+                <span class="version-label">Version</span>
+                <span class="version-number" id="app-version">-</span>
+            </div>
+        </div>
     </div>
 
     <div class="main-content">
@@ -217,12 +223,18 @@
         // Load status information
         async function loadStatus() {
             try {
-                const [configStatus, guideStatus, epgResponse, channelResponse] = await Promise.all([
+                const [configStatus, guideStatus, epgResponse, channelResponse, healthResponse] = await Promise.all([
                     apiCall('status'),
                     fetch('/status').then(r => r.json()),
                     apiCall('epg-urls'),
-                    apiCall('channel-map')
+                    apiCall('channel-map'),
+                    fetch('/health').then(r => r.json())
                 ]);
+
+                // ----- Version -----
+                if (healthResponse?.version) {
+                    document.getElementById('app-version').textContent = healthResponse.version;
+                }
 
                 // ----- EPG Sources -----
                 const epgContent = typeof epgResponse.content === 'string'
