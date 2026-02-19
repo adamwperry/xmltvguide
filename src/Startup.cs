@@ -27,7 +27,7 @@ public class Startup
         // Add existing services
         services.AddSingleton<IAppArguments, ArgumentParser>();
         services.AddSingleton<IXmlTVBuilder, XmlTVBuilder>();
-        services.AddSingleton<IFileService, XMLFileService<XDocument>>();
+        services.AddSingleton<IFileService, XMLFileService>();
         services.AddSingleton<IChannelMapLoader, ChannelMapLoader>();
         services.AddSingleton<IDataFetcher, DataFetcher>();
         services.AddSingleton<ICronLogger, CronLogger>();

@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Set environment for web hosting
+export RUN_AS_WEB=true
+export ASPNETCORE_ENVIRONMENT=Production
+
 # make sure the log exists
 touch /var/log/cron.log
 
@@ -54,18 +58,13 @@ fi
 
 echo "[entrypoint] Final ARGS: $ARGS" >> /var/log/cron.log
 
-# Updated: Run app if EPG_URL or EPG_URL_FILES is set
-if [[ -n "$EPG_URL" || -n "$EPG_URL_FILES" ]]; then
-    echo "[entrypoint] Running: dotnet /app/xmltvguide-generator.dll $ARGS" >> /var/log/cron.log
-    eval dotnet /app/xmltvguide-generator.dll $ARGS >> /var/log/cron.log 2>&1
-else
-    echo "[entrypoint] No EPG_URL or EPG_URL_FILES to pass. Skipping app startup." >> /var/log/cron.log
-fi
-
-# start cron and nginx
+# Start cron daemon in the background
+echo "[entrypoint] Starting cron daemon..." >> /var/log/cron.log
 service cron start
-service nginx start
-service cron status
+
+# Start the .NET application (it will handle both web UI and EPG generation)
+echo "[entrypoint] Starting .NET web application..." >> /var/log/cron.log
+exec dotnet /app/xmltvguide-generator.dll
 
 # keep container alive and tail log
 tail -f /var/log/cron.log

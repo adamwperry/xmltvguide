@@ -15,7 +15,7 @@ public class GuideController : ControllerBase
     }
     
     [HttpGet("guide.xml")]
-    public async Task<IActionResult> GetGuideXml()
+    public IActionResult GetGuideXml()
     {
         var outputPath = Environment.GetEnvironmentVariable("OUTPUT_PATH") ?? "/app/output/guide.xml";
         

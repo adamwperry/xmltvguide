@@ -28,14 +28,35 @@ class Program
         }
     }
 
-    public static IHostBuilder CreateHostBuilder(string[] args) =>
-        Host.CreateDefaultBuilder(args)
+    public static IHostBuilder CreateHostBuilder(string[] args)
+    {
+        // Determine port based on environment
+        var port = Environment.GetEnvironmentVariable("PORT") ?? GetDefaultPort();
+        
+        // Determine wwwroot path based on environment
+        var isDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" || 
+                       Directory.Exists("/app");
+        var wwwrootPath = isDocker 
+            ? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")
+            : Path.Combine(Directory.GetCurrentDirectory(), "src", "wwwroot");
+
+        return Host.CreateDefaultBuilder(args)
             .ConfigureWebHostDefaults(webBuilder =>
             {
                 webBuilder.UseStartup<Startup>();
-                webBuilder.UseUrls("http://0.0.0.0:8585");
-                webBuilder.UseWebRoot(Path.Combine(Directory.GetCurrentDirectory(), "src", "wwwroot"));
+                webBuilder.UseUrls($"http://0.0.0.0:{port}");
+                webBuilder.UseWebRoot(wwwrootPath);
             });
+    }
+
+    private static string GetDefaultPort()
+    {
+        // Check if running in Docker
+        var isDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" || 
+                       Directory.Exists("/app");
+        
+        return isDocker ? "80" : "8585";
+    }
 
     public static async Task RunEpgGeneration(string[] args)
     {
@@ -50,7 +71,7 @@ class Program
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSingleton<IAppArguments, ArgumentParser>();
             serviceCollection.AddSingleton<IXmlTVBuilder, XmlTVBuilder>();
-            serviceCollection.AddSingleton<IFileService, XMLFileService<XDocument>>();
+            serviceCollection.AddSingleton<IFileService, XMLFileService>();
             serviceCollection.AddSingleton<IChannelMapLoader, ChannelMapLoader>();
             serviceCollection.AddTransient<IGuideParser, GuideOneParser>();
             serviceCollection.AddTransient<IGuideParser, GuideTwoParser>();
@@ -109,6 +130,12 @@ class Program
             if (data == null)
             {
                 Console.WriteLine("Failed to fetch data.");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(arguments.ChannelMapPath) || string.IsNullOrEmpty(arguments.OutputPath))
+            {
+                Console.WriteLine("Channel map path and output path are required.");
                 return;
             }
 
@@ -136,7 +163,7 @@ class Program
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSingleton<IAppArguments, ArgumentParser>();
             serviceCollection.AddSingleton<IXmlTVBuilder, XmlTVBuilder>();
-            serviceCollection.AddSingleton<IFileService, XMLFileService<XDocument>>();
+            serviceCollection.AddSingleton<IFileService, XMLFileService>();
             serviceCollection.AddSingleton<IChannelMapLoader, ChannelMapLoader>();
             serviceCollection.AddTransient<IGuideParser, GuideOneParser>();
             serviceCollection.AddTransient<IGuideParser, GuideTwoParser>();
@@ -195,6 +222,12 @@ class Program
             if (data == null)
             {
                 Console.WriteLine("Failed to fetch data.");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(arguments.ChannelMapPath) || string.IsNullOrEmpty(arguments.OutputPath))
+            {
+                Console.WriteLine("Channel map path and output path are required.");
                 return;
             }
 
