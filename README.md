@@ -1,3 +1,8 @@
+#XMLTvGuide UI
+
+<img width="1468" height="798" alt="image" src="https://github.com/user-attachments/assets/b3889804-b683-4a56-930b-48e8dffdf98b" />
+
+
 # Build & Deploy xmltvguide-generator via Docker
 
 ## 1. Build Docker Image Locally
