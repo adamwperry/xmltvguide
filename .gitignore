@@ -73,3 +73,5 @@ src/output/
 # Output directory and specific files
 output/
 output/guide.xml
+
+.github/

@@ -69,7 +69,7 @@ docker run --rm \
 > - **Web UI**: `http://localhost:8585`
 > - **Guide XML**: `http://localhost:8585/guide.xml`
 > - **Health Check**: `http://localhost:8585/health`
-> - **API Endpoints**: `http://localhost:8585/api/config`, `http://localhost:8585/api/cron-logs`
+> - **API Endpoints**: `http://localhost:8585/api/config`, `http://localhost:8585/api/cronlogs`
 
 **Note:** Cron is automatically enabled and runs EPG updates every 20 minutes (configurable in `crontab.txt`).
 

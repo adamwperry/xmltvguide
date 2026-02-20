@@ -12,8 +12,10 @@ class Program
     static async Task Main(string[] args)
     {
         // Check if we should run as web host
-        var runAsWeb = Environment.GetEnvironmentVariable("RUN_AS_WEB") == "true" || 
-                       Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") != null;
+        var runAsWeb = string.Equals(
+            Environment.GetEnvironmentVariable("RUN_AS_WEB"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
 
         if (runAsWeb)
         {
@@ -81,7 +83,7 @@ class Program
             if (argumentParser == null)
             {
                 Console.WriteLine("Failed to resolve IAppArguments service.");
-                return;
+                Environment.Exit(1);
             }
 
             var arguments = argumentParser.ParseArguments(args);
@@ -105,7 +107,7 @@ class Program
                 if (arguments.Urls.Count == 0)
                 {
                     Console.WriteLine("No URLs provided for EPG generation.");
-                    return;
+                    Environment.Exit(1);
                 }
                 serviceCollection.AddSingleton<IDataFetcher, DataFetcher>();
             }
@@ -116,27 +118,27 @@ class Program
             if (dataFetcherService == null)
             {
                 Console.WriteLine("Failed to resolve IDataFetcher service.");
-                return;
+                Environment.Exit(1);
             }
 
             var xmlTVBuilderService = serviceProvider.GetService<IXmlTVBuilder>();
             if (xmlTVBuilderService == null)
             {
                 Console.WriteLine("Failed to resolve IXmlTVBuilder service.");
-                return;
+                Environment.Exit(1);
             }
 
             var data = await dataFetcherService.FetchDataAsync(arguments.Urls);
             if (data == null)
             {
                 Console.WriteLine("Failed to fetch data.");
-                return;
+                Environment.Exit(1);
             }
 
             if (string.IsNullOrEmpty(arguments.ChannelMapPath) || string.IsNullOrEmpty(arguments.OutputPath))
             {
                 Console.WriteLine("Channel map path and output path are required.");
-                return;
+                Environment.Exit(1);
             }
 
             xmlTVBuilderService.BuildXmlTV(data, arguments.ChannelMapPath, arguments.OutputPath);

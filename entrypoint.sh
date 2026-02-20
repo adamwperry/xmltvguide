@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# Set environment for web hosting
-export RUN_AS_WEB=true
-export ASPNETCORE_ENVIRONMENT=Production
-
 # make sure the log exists
 touch /var/log/cron.log
 
@@ -38,7 +34,9 @@ echo "EPG_URL: $EPG_URL" >> /var/log/cron.log
 echo "CHANNEL_MAP_PATH: $CHANNEL_MAP_PATH" >> /var/log/cron.log
 echo "OUTPUT_PATH: $OUTPUT_PATH" >> /var/log/cron.log
 echo "EPG_URL_FILES: $EPG_URL_FILES" >> /var/log/cron.log
+echo "RUN_AS_WEB: $RUN_AS_WEB" >> /var/log/cron.log
 
+# Build command line arguments for headless mode
 ARGS=""
 if [[ -n "$EPG_URL" ]]; then
     ARGS="$ARGS --url=\"$EPG_URL\""
@@ -58,13 +56,27 @@ fi
 
 echo "[entrypoint] Final ARGS: $ARGS" >> /var/log/cron.log
 
-# Start cron daemon in the background
-echo "[entrypoint] Starting cron daemon..." >> /var/log/cron.log
-service cron start
-
-# Start the .NET application (it will handle both web UI and EPG generation)
-echo "[entrypoint] Starting .NET web application..." >> /var/log/cron.log
-exec dotnet /app/xmltvguide-generator.dll
-
-# keep container alive and tail log
-tail -f /var/log/cron.log
+# Check if running in web mode or headless mode
+if [[ "$RUN_AS_WEB" == "true" ]]; then
+    echo "[entrypoint] Running in WEB mode" >> /var/log/cron.log
+    
+    # Set environment for web hosting
+    export ASPNETCORE_ENVIRONMENT=Production
+    
+    # Start cron daemon in the background
+    echo "[entrypoint] Starting cron daemon..." >> /var/log/cron.log
+    service cron start
+    
+    # Start the .NET application as web server
+    echo "[entrypoint] Starting .NET web application..." >> /var/log/cron.log
+    exec dotnet /app/xmltvguide-generator.dll
+else
+    echo "[entrypoint] Running in HEADLESS mode" >> /var/log/cron.log
+    
+    # Run one-time EPG generation with CLI arguments
+    echo "[entrypoint] Executing: dotnet /app/xmltvguide-generator.dll $ARGS" >> /var/log/cron.log
+    eval "dotnet /app/xmltvguide-generator.dll $ARGS"
+    
+    # Exit after completion (don't keep container running)
+    echo "[entrypoint] Headless execution completed at $(date -u)" >> /var/log/cron.log
+fi
