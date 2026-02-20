@@ -34,7 +34,9 @@ echo "EPG_URL: $EPG_URL" >> /var/log/cron.log
 echo "CHANNEL_MAP_PATH: $CHANNEL_MAP_PATH" >> /var/log/cron.log
 echo "OUTPUT_PATH: $OUTPUT_PATH" >> /var/log/cron.log
 echo "EPG_URL_FILES: $EPG_URL_FILES" >> /var/log/cron.log
+echo "RUN_AS_WEB: $RUN_AS_WEB" >> /var/log/cron.log
 
+# Build command line arguments for headless mode
 ARGS=""
 if [[ -n "$EPG_URL" ]]; then
     ARGS="$ARGS --url=\"$EPG_URL\""
@@ -54,18 +56,27 @@ fi
 
 echo "[entrypoint] Final ARGS: $ARGS" >> /var/log/cron.log
 
-# Updated: Run app if EPG_URL or EPG_URL_FILES is set
-if [[ -n "$EPG_URL" || -n "$EPG_URL_FILES" ]]; then
-    echo "[entrypoint] Running: dotnet /app/xmltvguide-generator.dll $ARGS" >> /var/log/cron.log
-    eval dotnet /app/xmltvguide-generator.dll $ARGS >> /var/log/cron.log 2>&1
+# Check if running in web mode or headless mode
+if [[ "$RUN_AS_WEB" == "true" ]]; then
+    echo "[entrypoint] Running in WEB mode" >> /var/log/cron.log
+    
+    # Set environment for web hosting
+    export ASPNETCORE_ENVIRONMENT=Production
+    
+    # Start cron daemon in the background
+    echo "[entrypoint] Starting cron daemon..." >> /var/log/cron.log
+    service cron start
+    
+    # Start the .NET application as web server
+    echo "[entrypoint] Starting .NET web application..." >> /var/log/cron.log
+    exec dotnet /app/xmltvguide-generator.dll
 else
-    echo "[entrypoint] No EPG_URL or EPG_URL_FILES to pass. Skipping app startup." >> /var/log/cron.log
+    echo "[entrypoint] Running in HEADLESS mode" >> /var/log/cron.log
+    
+    # Run one-time EPG generation with CLI arguments
+    echo "[entrypoint] Executing: dotnet /app/xmltvguide-generator.dll $ARGS" >> /var/log/cron.log
+    eval "dotnet /app/xmltvguide-generator.dll $ARGS"
+    
+    # Exit after completion (don't keep container running)
+    echo "[entrypoint] Headless execution completed at $(date -u)" >> /var/log/cron.log
 fi
-
-# start cron and nginx
-service cron start
-service nginx start
-service cron status
-
-# keep container alive and tail log
-tail -f /var/log/cron.log

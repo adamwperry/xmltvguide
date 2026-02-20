@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XMLTV Guide Configuration</title>
+    <link rel="icon" type="image/webp" href="images/xmltvguideicon.webp">
+    <link rel="icon" type="image/x-icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/xmltvguideicon.webp">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="logo">
+            <img src="images/xmltvguideicon.webp" alt="XMLTV Manager" class="logo-icon" />
+        </div>
+        
+        <nav>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="#" class="nav-link active">
+                        <img src="/images/icons/iconDashboard.png" alt="Dashboard" class="nav-icon">
+                        Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <img src="/images/icons/iconLinks.png" alt="Links" class="nav-icon">
+                        EPG Sources
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <img src="/images/icons/iconChannels.png" alt="Channels" class="nav-icon">
+                        Channels
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/guide.xml" target="_blank" rel="noopener" class="nav-link">
+                        <img src="/images/icons/iconStatus.png" alt="Status" class="nav-icon">
+                        View XML
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="version-info">
+                <span class="version-label">Version</span>
+                <span class="version-number" id="app-version">-</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <div class="header-left">
+                <h1>Dashboard</h1>
+                <div class="header-subtitle">XMLTV Guide Generator Configuration & Status</div>
+            </div>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-title">EPG Sources</div>
+                    <div class="stat-icon"><img src="/images/icons/iconLinks.png" alt="Links"></div>
+                </div>
+                <div class="stat-value" id="epg-count">-</div>
+                <div class="stat-change" id="epg-status-text">Loading...</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-title">Channels</div>
+                    <div class="stat-icon"><img src="/images/icons/iconChannels.png" alt="Channels"></div>
+                </div>
+                <div class="stat-value" id="channel-count">-</div>
+                <div class="stat-change" id="channel-status-text">Loading...</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-title">Guide Status</div>
+                    <div class="stat-icon"><img src="/images/icons/iconStatus.png" alt="Status"></div>
+                </div>
+                <div class="stat-value" id="guide-size">-</div>
+                <div class="stat-change" id="guide-status-text">Loading...</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-title">Last Update</div>
+                    <div class="stat-icon"><img src="/images/icons/iconLastUpdate.png" alt="Last Update"></div>
+                </div>
+                <div class="stat-value" id="last-update">-</div>
+                <div class="stat-change" id="update-status">Loading...</div>
+            </div>
+        </div>
+        
+        <div class="content-grid">
+            <div class="card">
+                <div class="card-header">
+                    <img src="/images/icons/iconLinks.png" alt="Links" class="header-icon"> EPG URL Sources
+                </div>
+                <div class="card-body">
+                    <div class="file-path" id="epg-path">Loading...</div>
+                    <div id="epg-status" class="status hidden"></div>
+                    <textarea id="epg-content" placeholder="Enter EPG URLs, one per line...&#10;https://example.com/guide1&#10;https://example.com/guide2"></textarea>
+                    <div class="button-group">
+                        <button onclick="loadEpgUrls()" class="btn-secondary"><img src="/images/icons/iconRefresh.png" alt="Reload" class="btn-icon"> Reload</button>
+                        <button onclick="saveEpgUrls()" class="btn-primary"><img src="/images/icons/iconSave.png" alt="Save" class="btn-icon"> Save URLs</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <img src="/images/icons/iconChannels.png" alt="Channels" class="header-icon"> Channel Mapping
+                </div>
+                <div class="card-body">
+                    <div class="file-path" id="channel-path">Loading...</div>
+                    <div id="channel-status" class="status hidden"></div>
+                    <textarea id="channel-content" placeholder='Enter channel mapping JSON...&#10;{&#10;  "channels": [&#10;    {&#10;      "channel": {&#10;        "name": "APW Sports",&#10;        "channelId": "10179"&#10;      }&#10;    }&#10;  ]&#10;}'></textarea>
+                    <div class="button-group">
+                        <button onclick="loadChannelMap()" class="btn-secondary"><img src="/images/icons/iconRefresh.png" alt="Reload" class="btn-icon"> Reload</button>
+                        <button onclick="validateJson()" class="btn-success"><img src="/images/icons/iconValidate.png" alt="Validate" class="btn-icon"> Validate</button>
+                        <button onclick="saveChannelMap()" class="btn-primary"><img src="/images/icons/iconSave.png" alt="Save" class="btn-icon"> Save Mapping</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="action-cards-grid">
+            <div class="card">
+                <div class="card-body card-body-center">
+                    <div class="card-icon-large"><img src="/images/icons/iconChannels.png" alt="Channels" class="icon-lg"></div>
+                    <div class="card-title">View Guide</div>
+                    <div class="card-subtitle">Download XML file</div>
+                    <a href="/guide.xml" target="_blank" rel="noopener" class="btn-primary btn-primary-large"><img src="/images/icons/iconView.png" alt="View" class="btn-icon"> View Guide XML</a>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body card-body-center">
+                    <div class="icon-container"><img src="/images/icons/iconRefresh.png" alt="Rebuild" class="stat-icon"></div>
+                    <div class="card-title">Rebuild Guide</div>
+                    <div class="card-subtitle">Generate new EPG data</div>
+                    <button onclick="rebuildGuide()" class="btn-primary"><img src="/images/icons/iconRefresh.png" alt="Rebuild" class="btn-icon"> Rebuild</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cron Logs Panel -->
+        <div class="content-grid">
+            <div class="card cron-logs-card">
+                <div class="card-header">
+                    <div class="card-header-title">
+                        <img src="/images/icons/iconLog.png" alt="Logs" class="icon-log"> Cron Run History
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="card-header-actions">
+                        <button onclick="loadCronLogs()" class="btn-secondary btn-sm"><img src="/images/icons/iconRefresh.png" alt="Refresh" class="btn-icon"> Refresh</button>
+                        <button onclick="clearCronLogs()" class="btn-danger btn-sm">Clear</button>
+                    </div>
+                    <div id="cron-logs-status" class="status hidden"></div>
+                    <div class="cron-logs-container">
+                        <div id="cron-logs-empty" class="empty-state">
+                            <img src="/images/icons/iconLog.png" alt="No logs" class="icon-log">
+                            <div class="empty-title">No cron runs logged yet</div>
+                            <div class="empty-subtitle">Cron job runs will appear here when they execute</div>
+                        </div>
+                        <div id="cron-logs-list" class="cron-logs-list hidden"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            };
+
+            if (data && method !== 'GET') {
+                options.body = JSON.stringify(data);
+            }
+
+            const response = await fetch(`/api/config/${endpoint}`, options);
+
+            if (!response.ok) {
+                throw new Error(`API error ${response.status}`);
+            }
+
+            return response.json();
+        }
+
+        function showStatus(elementId, message, type = 'info', allowHtml = false) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+
+            element.classList.remove('status-info', 'status-success', 'status-error');
+            element.classList.add('status', `status-${type}`);
+            if (allowHtml) {
+                element.innerHTML = message;
+            } else {
+                element.textContent = message;
+            }
+            element.classList.remove('hidden');
+
+            clearTimeout(element._hideTimer);
+
+            if (type === 'success') {
+                element._hideTimer = setTimeout(() => {
+                    element.classList.add('hidden');
+                }, 3000);
+            }
+        }
+
+        // Load status information
+        async function loadStatus() {
+            try {
+                const [configStatus, guideStatus, epgResponse, channelResponse, healthResponse] = await Promise.all([
+                    apiCall('status'),
+                    fetch('/status').then(r => r.json()),
+                    apiCall('epg-urls'),
+                    apiCall('channel-map'),
+                    fetch('/health').then(r => r.json())
+                ]);
+
+                // ----- Version -----
+                if (healthResponse?.version) {
+                    document.getElementById('app-version').textContent = healthResponse.version;
+                }
+
+                // ----- EPG Sources -----
+                const epgContent = typeof epgResponse.content === 'string'
+                    ? epgResponse.content
+                    : '';
+
+                const epgUrls = epgContent
+                    .split('\n')
+                    .filter(line => line.trim()).length;
+
+                document.getElementById('epg-count').textContent = epgUrls;
+
+                const epgExists = !!configStatus.epgUrlsExists;
+                document.getElementById('epg-status-text').innerHTML = `
+                    <span class="indicator ${epgExists ? 'success' : 'error'}"></span>
+                    ${epgExists ? 'Active' : 'Not Found'}
+                `;
+
+                // ----- Channels -----
+                try {
+                    const channelsJson = typeof channelResponse.content === 'string'
+                        ? JSON.parse(channelResponse.content)
+                        : channelResponse.content;
+
+                    const channelCount = channelsJson?.channels?.length || 0;
+                    document.getElementById('channel-count').textContent = channelCount;
+
+                    const channelMapExists = !!configStatus.channelMapExists;
+                    document.getElementById('channel-status-text').innerHTML = `
+                        <span class="indicator ${channelMapExists ? 'success' : 'error'}"></span>
+                        ${channelMapExists ? 'Configured' : 'Not Found'}
+                    `;
+                } catch {
+                    document.getElementById('channel-count').textContent = '0';
+                    document.getElementById('channel-status-text').innerHTML = `
+                        <span class="indicator error"></span>
+                        Invalid JSON
+                    `;
+                }
+
+                // ----- Guide Status -----
+                const guideExists = !!guideStatus?.guideExists;
+
+                if (guideExists) {
+                    const sizeKB = guideStatus.fileSize
+                        ? (guideStatus.fileSize / 1024).toFixed(1)
+                        : '0.0';
+
+                    document.getElementById('guide-size').textContent = sizeKB + ' KB';
+                    document.getElementById('guide-status-text').innerHTML = `
+                        <span class="indicator success"></span>
+                        Generated Successfully
+                    `;
+                } else {
+                    document.getElementById('guide-size').textContent = 'N/A';
+                    document.getElementById('guide-status-text').innerHTML = `
+                        <span class="indicator error"></span>
+                        Not Generated
+                    `;
+                }
+
+                // ----- Last Update -----
+                const lastModified =
+                    guideStatus?.lastModified ||
+                    configStatus?.lastModified?.epgUrls ||
+                    configStatus?.lastModified?.channelMap;
+
+                if (lastModified) {
+                    const date = new Date(lastModified);
+                    const now = new Date();
+                    const diffMinutes = Math.floor((now - date) / 60000);
+                    
+                    // Format: Feb 13, 8:45 PM
+                    const timeString = date.toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                    
+                    document.getElementById('last-update').textContent = timeString;
+                    
+                    // Show indicator based on how recent
+                    const indicator = diffMinutes < 360 ? 'success' : diffMinutes < 1440 ? 'warning' : 'error';
+                    
+                    // Format relative time
+                    let relativeTime;
+                    if (diffMinutes < 1) {
+                        relativeTime = 'Just now';
+                    } else if (diffMinutes < 60) {
+                        relativeTime = `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} ago`;
+                    } else if (diffMinutes < 1440) {
+                        const hours = Math.floor(diffMinutes / 60);
+                        relativeTime = `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+                    } else {
+                        const days = Math.floor(diffMinutes / 1440);
+                        relativeTime = `${days} day${days !== 1 ? 's' : ''} ago`;
+                    }
+                    
+                    document.getElementById('update-status').innerHTML = `
+                        <span class="indicator ${indicator}"></span>
+                        ${relativeTime}
+                    `;
+                } else {
+                    document.getElementById('last-update').textContent = 'Never';
+                    document.getElementById('update-status').innerHTML = `
+                        <span class="indicator error"></span>
+                        No updates found
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading status:', error);
+
+                ['epg-status-text', 'channel-status-text', 'guide-status-text', 'update-status']
+                    .forEach(id => {
+                        document.getElementById(id).innerHTML = `
+                            <span class="indicator error"></span>
+                            Error loading
+                        `;
+                    });
+            }
+        }
+
+
+        // Load EPG URLs
+        async function loadEpgUrls() {
+            const epgContent = document.getElementById('epg-content');
+            const epgPath = document.getElementById('epg-path');
+            const container = epgContent?.parentElement;
+
+            try {
+                container?.classList.add('loading');
+
+                const response = await apiCall('epg-urls');
+
+                if (!response?.content || !response?.path) {
+                    throw new Error('Invalid response from server');
+                }
+
+                epgContent.value = response.content;
+                epgPath.textContent = response.path;
+
+                showStatus('epg-status', 'EPG URLs loaded successfully', 'success');
+            } catch (error) {
+                showStatus(
+                    'epg-status',
+                    `Error loading EPG URLs: ${error.message}`,
+                    'error'
+                );
+            } finally {
+                container?.classList.remove('loading');
+            }
+        }
+
+        // Save EPG URLs
+        async function saveEpgUrls() {
+            const epgContent = document.getElementById('epg-content');
+            const container = epgContent?.parentElement;
+
+            try {
+                container?.classList.add('loading');
+
+                const content = epgContent.value;
+                const response = await fetch('/api/config/epg-urls', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || result?.error) {
+                    let msg = `Error: ${result.error || 'Unknown error'}`;
+                    if (Array.isArray(result.invalidUrls) && result.invalidUrls.length) {
+                        msg += `. Invalid URLs: ${result.invalidUrls.join(', ')}`;
+                    }
+                    showStatus('epg-status', msg, 'error');
+                    return;
+                }
+
+                showStatus('epg-status', result?.message ?? 'Saved.', 'success');
+                await loadStatus(); // refresh status
+            } catch (error) {
+                showStatus('epg-status', `Error saving EPG URLs: ${error.message}`, 'error');
+            } finally {
+                container?.classList.remove('loading');
+            }
+        }
+
+
+
+        // Load channel map
+        async function loadChannelMap() {
+            const channelContent = document.getElementById('channel-content');
+            const channelPath = document.getElementById('channel-path');
+            const container = channelContent?.parentElement;
+
+            try {
+                container?.classList.add('loading');
+
+                const response = await apiCall('channel-map');
+
+                let formatted;
+                try {
+                    const parsed =
+                        typeof response.content === 'string'
+                            ? JSON.parse(response.content)
+                            : response.content;
+
+                    formatted = JSON.stringify(parsed, null, 2);
+                } catch {
+                    throw new Error('Invalid JSON returned from server');
+                }
+
+                channelContent.value = formatted;
+                channelPath.textContent = response.path;
+
+                showStatus('channel-status', 'Channel map loaded successfully', 'success');
+            } catch (error) {
+                showStatus(
+                    'channel-status',
+                    `Error loading channel map: ${error.message}`,
+                    'error'
+                );
+            } finally {
+                container?.classList.remove('loading');
+            }
+        }
+
+        // Validate JSON
+        async function validateJson() {
+            try {
+                const content = document.getElementById('channel-content').value;
+                const response = await apiCall('validate-json', 'POST', { content });
+                
+                if (response.valid) {
+                    showStatus('channel-status', 'JSON is valid! <img src="/images/icons/iconValidate.png" alt="Valid" class="icon-inline-small">', 'success', true);
+                } else {
+                    showStatus('channel-status', 'Invalid JSON: ' + response.error, 'error');
+                }
+            } catch (error) {
+                showStatus('channel-status', 'Validation error: ' + error.message, 'error');
+            }
+        }
+
+        // Save channel map
+        async function saveChannelMap() {
+            try {
+                const content = document.getElementById('channel-content').value;
+                const container = document.getElementById('channel-content').parentElement;
+                container.classList.add('loading');
+                
+                const response = await apiCall('channel-map', 'POST', { content });
+                
+                if (response.error) {
+                    showStatus(
+                        'channel-status',
+                        'Error: ' + response.error +
+                        (response.details ? '. ' + response.details : ''),
+                        'error'
+                    );
+                } else {
+                    showStatus(
+                        'channel-status',
+                        response.message +
+                        ' <img src="/images/icons/iconValidate.png" alt="Saved" class="icon-inline-small">',
+                        'success',
+                        true
+                    );
+                    await loadStatus(); // Refresh status
+                }
+            } catch (error) {
+                showStatus(
+                    'channel-status',
+                    'Error saving channel map: ' + error.message,
+                    'error'
+                );
+            } finally {
+                const container = document.getElementById('channel-content').parentElement;
+                container.classList.remove('loading');
+            }
+        }
+
+
+        // Rebuild guide
+        async function rebuildGuide() {
+            try {
+                const response = await fetch('/rebuild', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    alert(result.message);
+                    // Force a full page reload to get fresh data
+                    setTimeout(() => {
+                        location.reload();
+                    }, 500);
+                } else {
+                    const errorText = await response.text();
+                    alert('Error: ' + errorText);
+                }
+            } catch (error) {
+                alert('Network error: ' + error.message);
+            }
+        }
+
+        // Cron logs functions
+        async function loadCronLogs() {
+            try {
+                const response = await fetch('/api/cronlogs?count=100');
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to load cron logs: ${response.status}`);
+                }
+
+                const logs = await response.json();
+                displayCronLogs(logs);
+                showStatus('cron-logs-status', 'Cron logs loaded successfully', 'success');
+            } catch (error) {
+                console.error('Error loading cron logs:', error);
+                showStatus('cron-logs-status', `Error loading cron logs: ${error.message}`, 'error');
+                displayCronLogs([]);
+            }
+        }
+
+        function displayCronLogs(logs) {
+            const emptyState = document.getElementById('cron-logs-empty');
+            const logsList = document.getElementById('cron-logs-list');
+
+            if (!logs || logs.length === 0) {
+                emptyState.classList.remove('hidden');
+                logsList.classList.add('hidden');
+                logsList.innerHTML = ''; // Clear any existing content
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            logsList.classList.remove('hidden');
+
+            // Sort logs by timestamp descending (newest first)
+            const sortedLogs = logs.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            logsList.innerHTML = sortedLogs.map(log => {
+                const timestamp = new Date(log.timestamp).toLocaleString();
+                const statusClass = log.success ? 'log-success' : 'log-error';
+                const statusText = log.success ? 'SUCCESS' : 'ERROR';
+                
+                return `
+                    <div class="cron-log-entry ${statusClass}">
+                        <div class="log-header">
+                            <div class="log-timestamp">${timestamp}</div>
+                            <div class="log-status log-status-${log.success ? 'success' : 'error'}">${statusText}</div>
+                        </div>
+                        <div class="log-message">${escapeHtml(log.message)}</div>
+                        ${log.errorMessage ? `<div class="log-error">${escapeHtml(log.errorMessage)}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function clearCronLogs() {
+            if (!confirm('Are you sure you want to clear all cron logs? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/cronlogs', {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    await loadCronLogs(); // Refresh the display
+                    showStatus('cron-logs-status', 'Cron logs cleared successfully', 'success');
+                } else {
+                    throw new Error(`Failed to clear logs: ${response.status}`);
+                }
+            } catch (error) {
+                console.error('Error clearing cron logs:', error);
+                showStatus('cron-logs-status', `Error clearing cron logs: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadStatus();
+            await loadEpgUrls();
+            await loadChannelMap();
+            await loadCronLogs();
+        });
+
+        // Auto-refresh status and cron logs every 1 minute
+        setInterval(() => {
+            loadStatus();
+            loadCronLogs();
+        }, 60000);
+    </script>
+</body>
+</html>

@@ -28,6 +28,9 @@ public class DataFetcher : DataFetcherBase
 
         if (url.Contains(UnixTimePlaceholder))
             url = SetUnixTime(url);
+        
+        if(url.Contains(YearMonthPlaceholder))
+            url = SetMonthYearTime(url);
 
         try
         {

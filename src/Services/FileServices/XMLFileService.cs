@@ -9,9 +9,7 @@ namespace xmlTVGuide.Services.FileServices;
 /// It implements the IFileService interface.
 /// The SaveFile method saves the provided XML content to the specified output path.
 /// </summary>
-/// <typeparam name="T"></typeparam>
-public class XMLFileService<T> : IFileService
-where T : XDocument
+public class XMLFileService : IFileService
 {
     /// <summary>
     /// Saves the provided XML content to the specified output path.

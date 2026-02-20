@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Threading.Tasks;
 using xmlTVGuide.Utilities;
 
 namespace xmlTVGuide.Services;
@@ -14,6 +10,7 @@ namespace xmlTVGuide.Services;
 public abstract class DataFetcherBase : IDataFetcher
 {
     protected const string UnixTimePlaceholder = "{unixtime}";
+    protected const string YearMonthPlaceholder = "{yearmonth}";
 
     protected HttpClient _client;
 
@@ -86,5 +83,15 @@ public abstract class DataFetcherBase : IDataFetcher
 
         var unixTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         return url.Replace(UnixTimePlaceholder, unixTime.ToString());
+    }
+
+    public string SetMonthYearTime(string url)
+    {
+        if (string.IsNullOrEmpty(url))
+            throw new ArgumentException("URL cannot be null or empty.", nameof(url));
+
+        var now = DateTime.UtcNow;
+        var yearMonth = now.ToString("yyyy-MM");
+        return url.Replace(YearMonthPlaceholder, yearMonth);
     }
 }

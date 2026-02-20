@@ -1,13 +1,8 @@
-using System;
-using System.IO;
-using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
 using xmlTVGuide.Services;
 using xmlTVGuide.Services.ArgumentParser;
 using xmlTVGuide.Services.FileServices;
 using System.Xml.Linq;
 using xmlTVGuide.Services.ChannelMap;
-using System.Collections.Generic;
 using xmlTVGuide.Services.XMXTVBuilder.Parsers;
 
 namespace xmlTVGuide;
@@ -15,6 +10,57 @@ namespace xmlTVGuide;
 class Program
 {
     static async Task Main(string[] args)
+    {
+        // Check if we should run as web host
+        var runAsWeb = string.Equals(
+            Environment.GetEnvironmentVariable("RUN_AS_WEB"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+
+        if (runAsWeb)
+        {
+            // Start web host for configuration UI
+            Console.WriteLine("Starting as web application...");
+            await CreateHostBuilder(args).Build().RunAsync();
+        }
+        else
+        {
+            // Run as console application (for one-time execution)
+            await RunEpgGeneration(args);
+        }
+    }
+
+    public static IHostBuilder CreateHostBuilder(string[] args)
+    {
+        // Determine port based on environment
+        var port = Environment.GetEnvironmentVariable("PORT") ?? GetDefaultPort();
+        
+        // Determine wwwroot path based on environment
+        var isDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" || 
+                       Directory.Exists("/app");
+        var wwwrootPath = isDocker 
+            ? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")
+            : Path.Combine(Directory.GetCurrentDirectory(), "src", "wwwroot");
+
+        return Host.CreateDefaultBuilder(args)
+            .ConfigureWebHostDefaults(webBuilder =>
+            {
+                webBuilder.UseStartup<Startup>();
+                webBuilder.UseUrls($"http://0.0.0.0:{port}");
+                webBuilder.UseWebRoot(wwwrootPath);
+            });
+    }
+
+    private static string GetDefaultPort()
+    {
+        // Check if running in Docker
+        var isDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" || 
+                       Directory.Exists("/app");
+        
+        return isDocker ? "80" : "8585";
+    }
+
+    public static async Task RunEpgGeneration(string[] args)
     {
         try
         {
@@ -27,7 +73,7 @@ class Program
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSingleton<IAppArguments, ArgumentParser>();
             serviceCollection.AddSingleton<IXmlTVBuilder, XmlTVBuilder>();
-            serviceCollection.AddSingleton<IFileService, XMLFileService<XDocument>>();
+            serviceCollection.AddSingleton<IFileService, XMLFileService>();
             serviceCollection.AddSingleton<IChannelMapLoader, ChannelMapLoader>();
             serviceCollection.AddTransient<IGuideParser, GuideOneParser>();
             serviceCollection.AddTransient<IGuideParser, GuideTwoParser>();
@@ -38,7 +84,6 @@ class Program
             {
                 Console.WriteLine("Failed to resolve IAppArguments service.");
                 Environment.Exit(1);
-                return;
             }
 
             var arguments = argumentParser.ParseArguments(args);
@@ -46,7 +91,6 @@ class Program
             if (arguments.HelpSet)
             {
                 Console.WriteLine(arguments.HelpText);
-                Environment.Exit(0);
                 return;
             }
 
@@ -62,8 +106,8 @@ class Program
             {
                 if (arguments.Urls.Count == 0)
                 {
-                    Console.WriteLine("Please provide a URL using --url=<url>.");
-                    return;
+                    Console.WriteLine("No URLs provided for EPG generation.");
+                    Environment.Exit(1);
                 }
                 serviceCollection.AddSingleton<IDataFetcher, DataFetcher>();
             }
@@ -75,7 +119,6 @@ class Program
             {
                 Console.WriteLine("Failed to resolve IDataFetcher service.");
                 Environment.Exit(1);
-                return;
             }
 
             var xmlTVBuilderService = serviceProvider.GetService<IXmlTVBuilder>();
@@ -83,7 +126,6 @@ class Program
             {
                 Console.WriteLine("Failed to resolve IXmlTVBuilder service.");
                 Environment.Exit(1);
-                return;
             }
 
             var data = await dataFetcherService.FetchDataAsync(arguments.Urls);
@@ -91,7 +133,12 @@ class Program
             {
                 Console.WriteLine("Failed to fetch data.");
                 Environment.Exit(1);
-                return;
+            }
+
+            if (string.IsNullOrEmpty(arguments.ChannelMapPath) || string.IsNullOrEmpty(arguments.OutputPath))
+            {
+                Console.WriteLine("Channel map path and output path are required.");
+                Environment.Exit(1);
             }
 
             xmlTVBuilderService.BuildXmlTV(data, arguments.ChannelMapPath, arguments.OutputPath);
@@ -102,6 +149,97 @@ class Program
         {
             Console.WriteLine($"An error occurred: {ex.Message ?? "Unknown error"}");
             Environment.Exit(1);
+        }
+    }
+
+    public static async Task RunEpgGenerationForWeb(string[] args)
+    {
+        try
+        {
+            Console.WriteLine("Starting XMLTV Guide Generator...");
+            Console.WriteLine($"EPG_URL_FILES: {Environment.GetEnvironmentVariable("EPG_URL_FILES")}");
+            Console.WriteLine($"EPG_URL: {Environment.GetEnvironmentVariable("EPG_URL")}");
+            Console.WriteLine($"CHANNEL_MAP_PATH: {Environment.GetEnvironmentVariable("CHANNEL_MAP_PATH")}");
+            Console.WriteLine($"OUTPUT_PATH: {Environment.GetEnvironmentVariable("OUTPUT_PATH")}");
+
+            var serviceCollection = new ServiceCollection();
+            serviceCollection.AddSingleton<IAppArguments, ArgumentParser>();
+            serviceCollection.AddSingleton<IXmlTVBuilder, XmlTVBuilder>();
+            serviceCollection.AddSingleton<IFileService, XMLFileService>();
+            serviceCollection.AddSingleton<IChannelMapLoader, ChannelMapLoader>();
+            serviceCollection.AddTransient<IGuideParser, GuideOneParser>();
+            serviceCollection.AddTransient<IGuideParser, GuideTwoParser>();
+            serviceCollection.AddTransient<IGuideParser, GuideThreeParser>();
+
+            var argumentParser = serviceCollection.BuildServiceProvider().GetService<IAppArguments>();
+            if (argumentParser == null)
+            {
+                Console.WriteLine("Failed to resolve IAppArguments service.");
+                return;
+            }
+
+            var arguments = argumentParser.ParseArguments(args);
+
+            if (arguments.HelpSet)
+            {
+                Console.WriteLine(arguments.HelpText);
+                return;
+            }
+
+            if (arguments.Fake)
+            {
+                arguments.Urls = arguments.Fake && arguments.Urls.Count == 0
+                    ? new List<string> { Path.Combine(Directory.GetCurrentDirectory(), "src", "TestData", "tvguide.json") }
+                    : arguments.Urls;
+
+                serviceCollection.AddSingleton<IDataFetcher, FakeDataFetcher>();
+            }
+            else
+            {
+                if (arguments.Urls.Count == 0)
+                {
+                    Console.WriteLine("No URLs provided for EPG generation.");
+                    return;
+                }
+                serviceCollection.AddSingleton<IDataFetcher, DataFetcher>();
+            }
+
+            var serviceProvider = serviceCollection.BuildServiceProvider();
+
+            var dataFetcherService = serviceProvider.GetService<IDataFetcher>();
+            if (dataFetcherService == null)
+            {
+                Console.WriteLine("Failed to resolve IDataFetcher service.");
+                return;
+            }
+
+            var xmlTVBuilderService = serviceProvider.GetService<IXmlTVBuilder>();
+            if (xmlTVBuilderService == null)
+            {
+                Console.WriteLine("Failed to resolve IXmlTVBuilder service.");
+                return;
+            }
+
+            var data = await dataFetcherService.FetchDataAsync(arguments.Urls);
+            if (data == null)
+            {
+                Console.WriteLine("Failed to fetch data.");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(arguments.ChannelMapPath) || string.IsNullOrEmpty(arguments.OutputPath))
+            {
+                Console.WriteLine("Channel map path and output path are required.");
+                return;
+            }
+
+            xmlTVBuilderService.BuildXmlTV(data, arguments.ChannelMapPath, arguments.OutputPath);
+            Console.WriteLine("XML guide.xml has been generated successfully.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message ?? "Unknown error"}");
+            throw; // Re-throw so the controller can handle it
         }
     }
 }

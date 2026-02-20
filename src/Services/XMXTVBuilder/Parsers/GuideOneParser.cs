@@ -116,7 +116,7 @@ public class GuideOneParser
 
 
         var chan = new XElement(ChannelKey, new XAttribute(IdKey, id));
-        chan.Add(new XElement(DisplayNameKey, name.Trim()));
+        chan.Add(new XElement(DisplayNameKey, name?.Trim() ?? ""));
 
         if (!string.IsNullOrWhiteSpace(thumb))
         {
