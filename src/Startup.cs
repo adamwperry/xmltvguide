@@ -4,7 +4,8 @@ using xmlTVGuide.Services.FileServices;
 using xmlTVGuide.Services.ChannelMap;
 using xmlTVGuide.Services.CronLogger;
 using xmlTVGuide.Services.XMXTVBuilder.Parsers;
-using System.Xml.Linq;
+using XmlTvGuide.Generator.Services.AuthService;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace xmlTVGuide;
 
@@ -18,11 +19,47 @@ public class Startup
         {
             options.AddDefaultPolicy(builder =>
             {
-                builder.AllowAnyOrigin()
+                builder.SetIsOriginAllowed(origin => origin.StartsWith("http://localhost"))
                        .AllowAnyMethod()
-                       .AllowAnyHeader();
+                       .AllowAnyHeader()
+                       .AllowCredentials();
             });
         });
+
+        // Add authentication
+        services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+            .AddCookie(options =>
+            {
+                options.LoginPath = "/login.html";
+                options.LogoutPath = "/";
+                options.AccessDeniedPath = "/login.html";
+                options.SlidingExpiration = true;
+                options.ExpireTimeSpan = TimeSpan.FromHours(24);
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax;
+                options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.SameAsRequest;
+
+                // Don't redirect on API calls, return 401 instead
+                options.Events = new CookieAuthenticationEvents
+                {
+                    OnRedirectToLogin = context =>
+                    {
+                        if (context.Request.Path.StartsWithSegments("/api"))
+                            context.Response.StatusCode = 401;
+                        else
+                            context.Response.Redirect(context.RedirectUri);
+                        return Task.CompletedTask;
+                    },
+                    OnRedirectToAccessDenied = context =>
+                    {
+                        if (context.Request.Path.StartsWithSegments("/api"))
+                            context.Response.StatusCode = 403;
+                        else
+                            context.Response.Redirect(context.RedirectUri);
+                        return Task.CompletedTask;
+                    }
+                };
+            });
 
         // Add existing services
         services.AddSingleton<IAppArguments, ArgumentParser>();
@@ -31,6 +68,7 @@ public class Startup
         services.AddSingleton<IChannelMapLoader, ChannelMapLoader>();
         services.AddSingleton<IDataFetcher, DataFetcher>();
         services.AddSingleton<ICronLogger, CronLogger>();
+        services.AddSingleton<IAuthService, AuthService>();
         services.AddTransient<IGuideParser, GuideOneParser>();
         services.AddTransient<IGuideParser, GuideTwoParser>();
         services.AddTransient<IGuideParser, GuideThreeParser>();
@@ -44,11 +82,13 @@ public class Startup
         }
 
         app.UseRouting();
+        app.UseAuthentication();
+        app.UseAuthorization();
         app.UseCors();
-        
+
         // Serve static files (our HTML interface)
         app.UseDefaultFiles();
-        
+
         var staticFileOptions = new StaticFileOptions
         {
             OnPrepareResponse = ctx =>

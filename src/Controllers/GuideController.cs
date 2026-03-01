@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using xmlTVGuide.Services.CronLogger;
 using IOFile = System.IO.File;
 
 namespace xmlTVGuide.Controllers;
 
 [Route("")]
+[Authorize]
 public class GuideController : ControllerBase
 {
     private readonly ICronLogger _cronLogger;
@@ -13,12 +15,12 @@ public class GuideController : ControllerBase
     {
         _cronLogger = cronLogger;
     }
-    
+
     [HttpGet("guide.xml")]
     public IActionResult GetGuideXml()
     {
         var outputPath = Environment.GetEnvironmentVariable("OUTPUT_PATH") ?? "/app/output/guide.xml";
-        
+
         if (!IOFile.Exists(outputPath))
             return NotFound("Guide XML file not found. The EPG generation may not have completed yet.");
 
@@ -37,7 +39,7 @@ public class GuideController : ControllerBase
     {
         var outputPath = Environment.GetEnvironmentVariable("OUTPUT_PATH") ?? "/app/output/guide.xml";
         var exists = IOFile.Exists(outputPath);
-        
+
         var status = new
         {
             guideExists = exists,
@@ -79,7 +81,7 @@ public class GuideController : ControllerBase
                         $"--channelmap={channelMapPath}",
                         $"--output={outputPath}"
                     });
-                    
+
                     // Log successful completion
                     _cronLogger.LogCronRun("Manual EPG rebuild completed successfully", DateTime.UtcNow, true);
                 }
