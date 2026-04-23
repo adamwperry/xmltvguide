@@ -10,7 +10,7 @@ namespace xmlTVGuide.Services;
 public abstract class DataFetcherBase : IDataFetcher
 {
     protected const string UnixTimePlaceholder = "{unixtime}";
-    protected const string YearMonthPlaceholder = "{yearmonth}";
+    protected const string YearMonthPlaceholder = "{monthyear}";
 
     protected HttpClient _client;
 
@@ -39,7 +39,7 @@ public abstract class DataFetcherBase : IDataFetcher
     /// </summary>
     /// <param name="userAgent">The user agent to be used in the request.</param>
     /// <returns>Returns an instance of HttpClient with the specified headers.</returns>
-    protected HttpClient GetClientAsync(UserAgent userAgent)
+    public static HttpClient GetClientAsync(UserAgent userAgent)
     {
         var client = new HttpClient();
         client.DefaultRequestHeaders.Add("User-Agent", userAgent.Value);
@@ -92,6 +92,11 @@ public abstract class DataFetcherBase : IDataFetcher
 
         var now = DateTime.UtcNow;
         var yearMonth = now.ToString("yyyy-MM");
-        return url.Replace(YearMonthPlaceholder, yearMonth);
+
+        // Handle both placeholder names for backward compatibility
+        url = url.Replace(YearMonthPlaceholder, yearMonth);
+        url = url.Replace("{yearmonth}", yearMonth); // legacy placeholder
+
+        return url;
     }
 }

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using xmlTVGuide.Services;
 using xmlTVGuide.Services.CronLogger;
+using xmlTVGuide.Services.BackgroundJobs;
 using IOFile = System.IO.File;
 
 namespace xmlTVGuide.Controllers;
@@ -10,10 +12,14 @@ namespace xmlTVGuide.Controllers;
 public class GuideController : ControllerBase
 {
     private readonly ICronLogger _cronLogger;
+    private readonly IEpgGenerationService _generationService;
+    private readonly IBackgroundJobService _backgroundJobService;
 
-    public GuideController(ICronLogger cronLogger)
+    public GuideController(ICronLogger cronLogger, IEpgGenerationService generationService, IBackgroundJobService backgroundJobService)
     {
         _cronLogger = cronLogger;
+        _generationService = generationService;
+        _backgroundJobService = backgroundJobService;
     }
 
     [HttpGet("guide.xml")]
@@ -52,7 +58,7 @@ public class GuideController : ControllerBase
     }
 
     [HttpPost("rebuild")]
-    public IActionResult RebuildGuide()
+    public async Task<IActionResult> RebuildGuide()
     {
         try
         {
@@ -68,38 +74,58 @@ public class GuideController : ControllerBase
             if (!IOFile.Exists(channelMapPath))
                 return BadRequest("Channel map file not found. Please configure channel mapping first.");
 
-            // Log the manual rebuild
-            _cronLogger.LogCronRun("Manual EPG rebuild initiated via web interface", DateTime.UtcNow, true);
-
-            // Run EPG generation in background
-            _ = Task.Run(async () =>
+            // Attempt to start the rebuild job
+            async Task RunRebuild()
             {
                 try
                 {
-                    await xmlTVGuide.Program.RunEpgGenerationForWeb(new[] {
+                    var result = await _generationService.GenerateAsync(new[] {
                         $"--epgUrlFiles={epgUrlsPath}",
                         $"--channelmap={channelMapPath}",
                         $"--output={outputPath}"
                     });
 
-                    // Log successful completion
-                    _cronLogger.LogCronRun("Manual EPG rebuild completed successfully", DateTime.UtcNow, true);
+                    if (!result.Success)
+                        throw new Exception(result.Message);
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"EPG generation error: {ex.Message}");
-                    // Log the error
-                    _cronLogger.LogCronRun("Manual EPG rebuild failed", DateTime.UtcNow, false, ex.Message);
+                    throw;
                 }
-            });
+            }
 
-            return Ok(new { message = "EPG rebuild started. Check status for completion." });
+            var (canStart, message) = await _backgroundJobService.TryStartJobAsync(RunRebuild, "EPG Rebuild");
+
+            if (!canStart)
+                return Conflict(new { message });
+
+            return Accepted(new { message });
         }
         catch (Exception ex)
         {
-            // Log the error
-            _cronLogger.LogCronRun("Failed to start manual EPG rebuild", DateTime.UtcNow, false, ex.Message);
-            return StatusCode(500, $"Error starting EPG rebuild: {ex.Message}");
+            return StatusCode(500, new { message = $"Error starting EPG rebuild: {ex.Message}" });
         }
+    }
+
+    [HttpGet("api/rebuild/status")]
+    public IActionResult GetRebuildStatus()
+    {
+        var status = _backgroundJobService.GetCurrentStatus();
+        return Ok(status);
+    }
+
+    [HttpGet("api/rebuild/history")]
+    public IActionResult GetRebuildHistory([FromQuery] int count = 50)
+    {
+        var history = _backgroundJobService.GetHistory(Math.Min(count, 200));
+        return Ok(new { history, count = history.Count });
+    }
+
+    [HttpPost("api/rebuild/cancel")]
+    public IActionResult CancelRebuild()
+    {
+        _backgroundJobService.CancelCurrent();
+        return Ok(new { message = "Cancellation request sent" });
     }
 }

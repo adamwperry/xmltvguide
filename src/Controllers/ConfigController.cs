@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using xmlTVGuide.Services.Validation;
 using IOFile = System.IO.File;
 
 namespace xmlTVGuide.Controllers;
@@ -13,9 +14,12 @@ public class ConfigController : ControllerBase
 {
     private readonly string _epgUrlsPath;
     private readonly string _channelMapPath;
+    private readonly IValidationService _validationService;
 
-    public ConfigController()
+    public ConfigController(IValidationService validationService)
     {
+        _validationService = validationService;
+
         // Determine if running in Docker or locally
         var isDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
                        Directory.Exists("/app");
@@ -155,6 +159,38 @@ public class ConfigController : ControllerBase
 
         return Ok(status);
     }
+
+    [HttpPost("test-source")]
+    public async Task<IActionResult> TestSource([FromBody] TestSourceRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Url))
+            return BadRequest(new { error = "URL is required" });
+
+        var result = await _validationService.TestSourceAsync(request.Url);
+        return Ok(result);
+    }
+
+    [HttpPost("preview-channels")]
+    public async Task<IActionResult> PreviewChannels([FromBody] PreviewChannelsRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Url))
+            return BadRequest(new { error = "URL is required" });
+
+        var channelMapPath = request.UseCurrentMap && IOFile.Exists(_channelMapPath) ? _channelMapPath : null;
+        var result = await _validationService.PreviewChannelsAsync(request.Url, channelMapPath);
+        return Ok(result);
+    }
+}
+
+public class TestSourceRequest
+{
+    public string Url { get; set; } = "";
+}
+
+public class PreviewChannelsRequest
+{
+    public string Url { get; set; } = "";
+    public bool UseCurrentMap { get; set; } = true;
 }
 
 public class SaveFileRequest

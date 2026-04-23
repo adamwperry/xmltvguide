@@ -26,7 +26,7 @@ public class HealthController : ControllerBase
             status = "healthy",
             timestamp = DateTime.UtcNow,
             service = "xmltvguide-generator",
-            version = "1.2.0",
+            version = "1.3.1",
             checks = new
             {
                 guideFile = new
