@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using IOFile = System.IO.File;
@@ -7,6 +8,7 @@ namespace xmlTVGuide.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ConfigController : ControllerBase
 {
     private readonly string _epgUrlsPath;
@@ -15,11 +17,11 @@ public class ConfigController : ControllerBase
     public ConfigController()
     {
         // Determine if running in Docker or locally
-        var isDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" || 
+        var isDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
                        Directory.Exists("/app");
-        
+
         var basePath = isDocker ? "/app" : Directory.GetCurrentDirectory();
-        
+
         _epgUrlsPath = Path.GetFullPath(
             Environment.GetEnvironmentVariable("EPG_URL_FILES") ??
             Path.Combine(basePath, "epg_urls.txt")
@@ -59,8 +61,8 @@ public class ConfigController : ControllerBase
             foreach (var line in lines)
             {
                 var url = line.Trim();
-                if (!string.IsNullOrEmpty(url) && 
-                    !url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && 
+                if (!string.IsNullOrEmpty(url) &&
+                    !url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
                     !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                 {
                     invalidUrls.Add(url);

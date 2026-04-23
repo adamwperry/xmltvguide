@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using IOFile = System.IO.File;
 
 namespace xmlTVGuide.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[AllowAnonymous]
 public class HealthController : ControllerBase
 {
     [HttpGet]
@@ -14,11 +16,11 @@ public class HealthController : ControllerBase
         var outputPath = Environment.GetEnvironmentVariable("OUTPUT_PATH") ?? "/app/output/guide.xml";
         var channelMapPath = Environment.GetEnvironmentVariable("CHANNEL_MAP_PATH") ?? "/app/ChannelMap.json";
         var epgUrlsPath = Environment.GetEnvironmentVariable("EPG_URL_FILES") ?? "/app/epg_urls.txt";
-        
+
         var guideExists = IOFile.Exists(outputPath);
         var channelMapExists = IOFile.Exists(channelMapPath);
         var epgUrlsExists = IOFile.Exists(epgUrlsPath);
-        
+
         var health = new
         {
             status = "healthy",
@@ -56,13 +58,13 @@ public class HealthController : ControllerBase
     {
         var outputPath = Environment.GetEnvironmentVariable("OUTPUT_PATH") ?? "/app/output/guide.xml";
         var channelMapPath = Environment.GetEnvironmentVariable("CHANNEL_MAP_PATH") ?? "/app/ChannelMap.json";
-        
+
         var guideExists = IOFile.Exists(outputPath);
         var channelMapExists = IOFile.Exists(channelMapPath);
-        
+
         // Service is ready if channel map exists (guide can be generated on first run)
         var isReady = channelMapExists;
-        
+
         var readiness = new
         {
             status = isReady ? "ready" : "not_ready",

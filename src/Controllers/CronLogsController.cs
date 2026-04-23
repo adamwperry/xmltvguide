@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using xmlTVGuide.Models;
 using xmlTVGuide.Services.CronLogger;
 
@@ -6,6 +7,7 @@ namespace xmlTVGuide.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class CronLogsController : ControllerBase
 {
     private readonly ICronLogger _cronLogger;
@@ -49,7 +51,7 @@ public class CronLogsController : ControllerBase
         try
         {
             var timestamp = DateTime.UtcNow;
-            
+
             // Add some test log entries
             _cronLogger.LogCronRun("EPG generation completed successfully", timestamp.AddMinutes(-5), true);
             _cronLogger.LogCronRun("EPG generation completed successfully", timestamp.AddMinutes(-10), true);
