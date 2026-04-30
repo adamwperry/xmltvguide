@@ -155,6 +155,7 @@
                         <button onclick="validateJson()" class="btn-success"><img src="/images/icons/iconValidate.svg" alt="Validate" class="btn-icon"> Validate</button>
                         <button onclick="saveChannelMap()" class="btn-primary"><img src="/images/icons/iconSave.svg" alt="Save" class="btn-icon"> Save Mapping</button>
                         <button onclick="previewChannels()" class="btn-warning" id="preview-channels-btn"><img src="/images/icons/iconChannels.svg" alt="Preview" class="btn-icon"> Preview Channels</button>
+                        <button onclick="suggestMappingsFromGuideXml()" class="btn-secondary" id="suggest-mappings-btn"><img src="/images/icons/iconMapSuggest.svg" alt="Build suggestions" class="btn-icon"> Build Map Suggestions</button>
                     </div>
                 </div>
             </div>
@@ -316,6 +317,9 @@
                         <option value="blank-id">Blank channel IDs</option>
                         <option value="duplicates">Duplicate IDs</option>
                     </select>
+                    <button type="button" class="btn-success channel-preview-add-visible" onclick="addVisiblePreviewChannelsToMap()">
+                        Add visible unmapped
+                    </button>
                 </div>
                 <div id="channelPreviewSummary" class="channel-preview-summary"></div>
             </div>
@@ -324,6 +328,32 @@
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeChannelPreviewModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Map Suggestions Modal -->
+    <div id="mapSuggestionsModal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeMapSuggestionsModal()"></div>
+        <div class="modal-content map-suggestions-modal-content">
+            <button class="modal-close modal-close-floating" onclick="closeMapSuggestionsModal()">✕</button>
+            <div class="modal-header preview-modal-header map-suggestions-header">
+                <h3 class="map-suggestions-title">Build Map Suggestions</h3>
+                <div id="mapSuggestionsSummary" class="map-suggestions-summary"></div>
+            </div>
+            <div class="modal-body map-suggestions-modal-body">
+                <div class="map-suggestions-toolbar">
+                    <label class="map-suggestions-select-all">
+                        <input id="map-suggestions-select-all" type="checkbox" checked onchange="toggleAllMapSuggestions(this.checked)">
+                        Select all suggestions
+                    </label>
+                    <span id="mapSuggestionsSelectedCount" class="map-suggestions-selected-count"></span>
+                </div>
+                <div id="mapSuggestionsContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeMapSuggestionsModal()">Reject / Close</button>
+                <button class="btn-success" onclick="acceptSelectedMapSuggestions()">Accept Selected</button>
             </div>
         </div>
     </div>
@@ -339,6 +369,7 @@
                 document.getElementById('confirmModal').classList.add('hidden');
                 document.getElementById('guidePreviewModal').classList.add('hidden');
                 document.getElementById('channelPreviewModal').classList.add('hidden');
+                document.getElementById('mapSuggestionsModal').classList.add('hidden');
             }
         });
 
@@ -621,6 +652,14 @@
 
         function closeChannelPreviewModal() {
             document.getElementById('channelPreviewModal').classList.add('hidden');
+        }
+
+        function openMapSuggestionsModal() {
+            document.getElementById('mapSuggestionsModal').classList.remove('hidden');
+        }
+
+        function closeMapSuggestionsModal() {
+            document.getElementById('mapSuggestionsModal').classList.add('hidden');
         }
 
         // Global guide data storage
@@ -1763,6 +1802,345 @@
                 });
         }
 
+        function readChannelMapEditor() {
+            const channelContent = document.getElementById('channel-content');
+            const rawContent = channelContent.value.trim() || '{"channels": []}';
+            const parsed = JSON.parse(rawContent);
+
+            if (!Array.isArray(parsed.channels)) {
+                parsed.channels = [];
+            }
+
+            return parsed;
+        }
+
+        function writeChannelMapEditor(channelMap) {
+            document.getElementById('channel-content').value = JSON.stringify(channelMap, null, 2);
+        }
+
+        function getChannelEntryId(entry) {
+            return String(entry?.channel?.channelId || '').trim();
+        }
+
+        function getExistingChannelIds(channelMap) {
+            return new Set(
+                (channelMap.channels || [])
+                    .map(entry => getChannelEntryId(entry).toLowerCase())
+                    .filter(Boolean)
+            );
+        }
+
+        function getFirstDisplayName(channelElement) {
+            const names = Array.from(channelElement.getElementsByTagName('display-name'))
+                .map(nameElement => nameElement.textContent?.trim() || '')
+                .filter(Boolean);
+
+            return names[0] || '';
+        }
+
+        function addMappingToChannelMap(channelId, displayName) {
+            const normalizedId = String(channelId || '').trim();
+            const normalizedName = String(displayName || '').trim();
+
+            if (!normalizedId) {
+                showToast('Cannot add a mapping without a channel ID.', 'warning');
+                return false;
+            }
+
+            if (!normalizedName) {
+                showToast(`Cannot add ${normalizedId}: display name is blank.`, 'warning');
+                return false;
+            }
+
+            let channelMap;
+            try {
+                channelMap = readChannelMapEditor();
+            } catch (error) {
+                showToast(`Channel map JSON must be valid before adding mappings: ${error.message}`, 'error');
+                return false;
+            }
+
+            const alreadyExists = channelMap.channels.some(entry =>
+                getChannelEntryId(entry).toLowerCase() === normalizedId.toLowerCase()
+            );
+
+            if (alreadyExists) {
+                showToast(`${normalizedId} is already in the channel map.`, 'info');
+                markPreviewChannelMapped(normalizedId, normalizedName);
+                return false;
+            }
+
+            channelMap.channels.push({
+                channel: {
+                    name: normalizedName,
+                    channelId: normalizedId
+                }
+            });
+
+            writeChannelMapEditor(channelMap);
+            markPreviewChannelMapped(normalizedId, normalizedName);
+            showStatus('channel-status', `Added ${escapeHtml(normalizedName)} (${escapeHtml(normalizedId)}) to the channel map editor. Save Mapping to persist it.`, 'success');
+            return true;
+        }
+
+        let _mapSuggestions = [];
+
+        async function suggestMappingsFromGuideXml() {
+            if (!beginAction('suggest-mappings-from-xml', 'suggest-mappings-btn', 'Scanning...')) {
+                showToast('Guide XML suggestion scan is already running.', 'info');
+                return;
+            }
+
+            try {
+                let channelMap;
+                try {
+                    channelMap = readChannelMapEditor();
+                } catch (error) {
+                    showToast(`Channel map JSON must be valid before suggesting mappings: ${error.message}`, 'error');
+                    return;
+                }
+
+                const response = await fetch('/guide.xml', { credentials: 'include' });
+                if (!response.ok) {
+                    throw new Error(`Guide XML request failed with status ${response.status}`);
+                }
+
+                const xmlText = await response.text();
+                const xmlDoc = new DOMParser().parseFromString(xmlText, 'text/xml');
+                if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
+                    throw new Error('Guide XML could not be parsed.');
+                }
+
+                const existingIds = getExistingChannelIds(channelMap);
+                const suggestions = new Map();
+                let skippedWeakSuggestions = 0;
+
+                for (const channelElement of Array.from(xmlDoc.getElementsByTagName('channel'))) {
+                    const channelId = channelElement.getAttribute('id')?.trim() || '';
+                    const displayName = getFirstDisplayName(channelElement);
+
+                    if (!channelId || !displayName || existingIds.has(channelId.toLowerCase())) {
+                        continue;
+                    }
+
+                    if (displayName.toLowerCase() === channelId.toLowerCase()) {
+                        skippedWeakSuggestions++;
+                        continue;
+                    }
+
+                    suggestions.set(channelId.toLowerCase(), { channelId, displayName });
+                }
+
+                if (suggestions.size === 0) {
+                    const skippedText = skippedWeakSuggestions > 0
+                        ? ` ${skippedWeakSuggestions} weak suggestion${skippedWeakSuggestions === 1 ? '' : 's'} skipped because the display name matched the channel ID.`
+                        : '';
+                    showStatus('channel-status', `No missing mappings found in guide XML.${skippedText}`, 'info');
+                    showToast('No XML-based mapping suggestions found.', 'info');
+                    return;
+                }
+
+                const skippedText = skippedWeakSuggestions > 0
+                    ? ` Skipped ${skippedWeakSuggestions} weak suggestion${skippedWeakSuggestions === 1 ? '' : 's'} where the display name matched the ID.`
+                    : '';
+
+                _mapSuggestions = Array.from(suggestions.values());
+                renderMapSuggestionsModal(_mapSuggestions, skippedWeakSuggestions);
+                openMapSuggestionsModal();
+                showStatus('channel-status', `Found ${_mapSuggestions.length} XML mapping suggestion${_mapSuggestions.length === 1 ? '' : 's'} for review.${skippedText}`, 'success');
+                showToast(`Found ${_mapSuggestions.length} mapping suggestion${_mapSuggestions.length === 1 ? '' : 's'} for review.`, 'success');
+            } catch (error) {
+                showStatus('channel-status', `Error suggesting mappings from guide XML: ${error.message}`, 'error');
+                showToast(`Error suggesting mappings from guide XML: ${error.message}`, 'error');
+            } finally {
+                endAction('suggest-mappings-from-xml', 'suggest-mappings-btn');
+            }
+        }
+
+        function renderMapSuggestionsModal(suggestions, skippedWeakSuggestions) {
+            const summary = document.getElementById('mapSuggestionsSummary');
+            const content = document.getElementById('mapSuggestionsContent');
+
+            summary.innerHTML = `
+                <strong>${suggestions.length} suggestion${suggestions.length === 1 ? '' : 's'} found from guide XML</strong>
+                <div class="map-suggestions-subtitle">
+                    Review these before adding them to the channel map editor. Nothing is saved until you click Save Mapping.
+                    ${skippedWeakSuggestions > 0 ? `Skipped ${skippedWeakSuggestions} weak suggestion${skippedWeakSuggestions === 1 ? '' : 's'} where the display name matched the ID.` : ''}
+                </div>
+            `;
+
+            content.innerHTML = `
+                <table class="map-suggestions-table">
+                    <thead>
+                        <tr>
+                            <th class="map-suggestions-check-cell">Use</th>
+                            <th>Channel ID</th>
+                            <th>Suggested Name</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${suggestions.map((suggestion, index) => `
+                            <tr>
+                                <td class="map-suggestions-check-cell">
+                                    <input type="checkbox" class="map-suggestion-checkbox" data-suggestion-index="${index}" checked onchange="updateMapSuggestionSelectedCount()">
+                                </td>
+                                <td class="map-suggestions-id-cell">${escapeHtml(suggestion.channelId)}</td>
+                                <td>${escapeHtml(suggestion.displayName)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            const selectAll = document.getElementById('map-suggestions-select-all');
+            if (selectAll) {
+                selectAll.checked = true;
+                selectAll.indeterminate = false;
+            }
+
+            updateMapSuggestionSelectedCount();
+        }
+
+        function toggleAllMapSuggestions(isSelected) {
+            document.querySelectorAll('.map-suggestion-checkbox').forEach(checkbox => {
+                checkbox.checked = isSelected;
+            });
+
+            updateMapSuggestionSelectedCount();
+        }
+
+        function updateMapSuggestionSelectedCount() {
+            const checkboxes = Array.from(document.querySelectorAll('.map-suggestion-checkbox'));
+            const selectedCount = checkboxes.filter(checkbox => checkbox.checked).length;
+            const selectedCountElement = document.getElementById('mapSuggestionsSelectedCount');
+            const selectAll = document.getElementById('map-suggestions-select-all');
+
+            if (selectedCountElement) {
+                selectedCountElement.textContent = `${selectedCount} of ${checkboxes.length} selected`;
+            }
+
+            if (selectAll) {
+                selectAll.checked = checkboxes.length > 0 && selectedCount === checkboxes.length;
+                selectAll.indeterminate = selectedCount > 0 && selectedCount < checkboxes.length;
+            }
+        }
+
+        function acceptSelectedMapSuggestions() {
+            const selectedSuggestions = Array.from(document.querySelectorAll('.map-suggestion-checkbox:checked'))
+                .map(checkbox => _mapSuggestions[Number(checkbox.dataset.suggestionIndex)])
+                .filter(Boolean);
+
+            if (selectedSuggestions.length === 0) {
+                showToast('Select at least one mapping suggestion to accept.', 'warning');
+                return;
+            }
+
+            let channelMap;
+            try {
+                channelMap = readChannelMapEditor();
+            } catch (error) {
+                showToast(`Channel map JSON must be valid before accepting suggestions: ${error.message}`, 'error');
+                return;
+            }
+
+            const existingIds = getExistingChannelIds(channelMap);
+            let addedCount = 0;
+
+            for (const { channelId, displayName } of selectedSuggestions) {
+                const key = channelId.toLowerCase();
+                if (existingIds.has(key)) continue;
+
+                channelMap.channels.push({
+                    channel: {
+                        name: displayName,
+                        channelId
+                    }
+                });
+                existingIds.add(key);
+                markPreviewChannelMapped(channelId, displayName);
+                addedCount++;
+            }
+
+            if (addedCount === 0) {
+                showToast('Selected suggestions were already in the channel map editor.', 'info');
+                closeMapSuggestionsModal();
+                return;
+            }
+
+            writeChannelMapEditor(channelMap);
+            closeMapSuggestionsModal();
+            showStatus('channel-status', `Accepted ${addedCount} mapping suggestion${addedCount === 1 ? '' : 's'} into the editor. Review, then Save Mapping to persist.`, 'success');
+            showToast(`Accepted ${addedCount} mapping suggestion${addedCount === 1 ? '' : 's'}.`, 'success');
+        }
+
+        function addPreviewChannelToMap(button) {
+            const channelId = button?.dataset?.mapChannelId || '';
+            const displayName = button?.dataset?.mapDisplayName || '';
+
+            if (addMappingToChannelMap(channelId, displayName)) {
+                showToast(`Added ${displayName} to the channel map editor.`, 'success');
+            }
+        }
+
+        function addVisiblePreviewChannelsToMap() {
+            const visibleRows = Array.from(document.querySelectorAll('[data-preview-row="true"]:not(.hidden)'));
+            const candidates = new Map();
+
+            for (const row of visibleRows) {
+                if (row.dataset.previewMapped === 'true') continue;
+
+                const channelId = row.dataset.mapChannelId || '';
+                const displayName = row.dataset.mapDisplayName || '';
+                if (!channelId.trim() || !displayName.trim()) continue;
+
+                candidates.set(channelId.toLowerCase(), { channelId, displayName });
+            }
+
+            if (candidates.size === 0) {
+                showToast('No visible unmapped channels are available to add.', 'info');
+                return;
+            }
+
+            let addedCount = 0;
+            for (const { channelId, displayName } of candidates.values()) {
+                if (addMappingToChannelMap(channelId, displayName)) {
+                    addedCount++;
+                }
+            }
+
+            if (addedCount > 0) {
+                showToast(`Added ${addedCount} mapping${addedCount === 1 ? '' : 's'} to the editor. Save Mapping to persist.`, 'success');
+            } else {
+                showToast('All visible unmapped channels were already in the editor.', 'info');
+            }
+        }
+
+        function markPreviewChannelMapped(channelId, mappedName) {
+            const normalizedId = String(channelId || '').trim().toLowerCase();
+            if (!normalizedId) return;
+
+            document.querySelectorAll('[data-preview-row="true"]').forEach(row => {
+                if ((row.dataset.mapChannelId || '').trim().toLowerCase() !== normalizedId) return;
+
+                row.dataset.previewMapped = 'true';
+                row.classList.add('channel-preview-row-mapped');
+
+                const mappedCell = row.querySelector('[data-preview-mapped-cell="true"]');
+                if (mappedCell) {
+                    mappedCell.classList.remove('unmapped-cell');
+                    mappedCell.classList.add('mapped-cell');
+                    mappedCell.textContent = mappedName;
+                }
+
+                const actionCell = row.querySelector('[data-preview-action-cell="true"]');
+                if (actionCell) {
+                    actionCell.innerHTML = '<span class="channel-preview-added-label">Added</span>';
+                }
+            });
+
+            filterChannelPreview();
+        }
+
         function renderChannelPreviewTable(channels) {
             const idCounts = new Map();
             for (const channel of channels) {
@@ -1781,6 +2159,7 @@
                             <th>Mapped To</th>
                             <th class="text-center">Programs</th>
                             <th>Sources</th>
+                            <th class="channel-preview-action-header">Map</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1799,8 +2178,9 @@
                 ].filter(Boolean).join(' ').toLowerCase();
                 const isBlankId = !channelId;
                 const isDuplicate = !!channelId && (idCounts.get(channelId) || 0) > 1;
+                const canAddMapping = !ch.isMapped && !isBlankId && !!String(ch.displayName || '').trim();
                 tableHtml += `
-                    <tr class="${rowClass}" data-preview-row="true" data-preview-search="${escapeHtml(previewSearch)}" data-preview-mapped="${ch.isMapped ? 'true' : 'false'}" data-preview-blank-id="${isBlankId ? 'true' : 'false'}" data-preview-duplicate="${isDuplicate ? 'true' : 'false'}">
+                    <tr class="${rowClass}" data-preview-row="true" data-preview-search="${escapeHtml(previewSearch)}" data-preview-mapped="${ch.isMapped ? 'true' : 'false'}" data-preview-blank-id="${isBlankId ? 'true' : 'false'}" data-preview-duplicate="${isDuplicate ? 'true' : 'false'}" data-map-channel-id="${escapeHtml(channelId)}" data-map-display-name="${escapeHtml(ch.displayName || '')}">
                         <td class="channel-preview-id-cell">${escapeHtml(ch.id)}</td>
                         <td>
                             <div>${escapeHtml(ch.displayName)}</div>
@@ -1808,13 +2188,18 @@
                                 ? `<div class="channel-preview-alt-names">Also seen as: ${escapeHtml(ch.alternateDisplayNames.join(', '))}</div>`
                                 : ''}
                         </td>
-                        <td class="${mappedClass}">${escapeHtml(ch.mappedName || '—')}</td>
+                        <td class="${mappedClass}" data-preview-mapped-cell="true">${escapeHtml(ch.mappedName || '—')}</td>
                         <td class="channel-preview-program-cell">${ch.programCount}</td>
                         <td class="channel-preview-source-cell">
                             <div>${ch.sourceCount || (ch.sourceList?.length || 0)} source(s)</div>
                             ${((ch.sourceList?.length || ch.sources?.length) > 0)
                                 ? `<div class="channel-preview-source-list">${escapeHtml((ch.sourceList || ch.sources).join(', '))}</div>`
                                 : '<div class="channel-preview-source-list">—</div>'}
+                        </td>
+                        <td class="channel-preview-action-cell" data-preview-action-cell="true">
+                            ${canAddMapping
+                                ? '<button type="button" class="channel-preview-map-button" onclick="addPreviewChannelToMap(this)" data-map-channel-id="' + escapeHtml(channelId) + '" data-map-display-name="' + escapeHtml(ch.displayName || '') + '">Add</button>'
+                                : (ch.isMapped ? '<span class="channel-preview-added-label">Mapped</span>' : '<span class="channel-preview-added-label">—</span>')}
                         </td>
                     </tr>
                 `;
@@ -1823,7 +2208,7 @@
             if (channels.length === 0) {
                 tableHtml += `
                     <tr>
-                        <td colspan="5" class="channel-preview-empty-cell">
+                        <td colspan="6" class="channel-preview-empty-cell">
                             No channels were detected for this source.
                         </td>
                     </tr>
