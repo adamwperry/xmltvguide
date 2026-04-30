@@ -130,4 +130,98 @@ public class ArgumentParserTests : IDisposable
         res.HelpText!.Should().Contain("Usage:");
         res.Urls.Should().BeEmpty(); // nothing else parsed
     }
+
+    [Fact]
+    public void url_argument_overrides_epg_url_files_and_environment_values()
+    {
+        ClearEnv();
+        Environment.SetEnvironmentVariable("EPG_URL", "https://env.com/epg");
+
+        var tmp = Path.GetTempFileName();
+        File.WriteAllLines(tmp, new[] { "https://file.com/epg" });
+
+        var parser = new ArgumentParser();
+        var result = parser.ParseArguments(new[]
+        {
+            "--URL=https://arg.com/epg",
+            $"--epgUrlFiles={tmp}",
+            "--output=/tmp/out.xml"
+        });
+
+        result.Urls.Should().BeEquivalentTo(new[] { "https://arg.com/epg" });
+
+        File.Delete(tmp);
+    }
+
+    [Fact]
+    public void reads_urls_from_epg_url_files_environment_variable()
+    {
+        ClearEnv();
+
+        var tmp = Path.GetTempFileName();
+        File.WriteAllLines(tmp, new[] { "https://env-one.com/epg", "https://env-two.com/epg" });
+        Environment.SetEnvironmentVariable("EPG_URL_FILES", tmp);
+        Environment.SetEnvironmentVariable("OUTPUT_PATH", "/tmp/env-out.xml");
+
+        var parser = new ArgumentParser();
+        var result = parser.ParseArguments(Array.Empty<string>());
+
+        result.Urls.Should().BeEquivalentTo(new[] { "https://env-one.com/epg", "https://env-two.com/epg" });
+        result.OutputPath.Should().Be("/tmp/env-out.xml");
+
+        File.Delete(tmp);
+    }
+
+    [Fact]
+    public void uses_default_output_path_and_allows_empty_channel_map()
+    {
+        ClearEnv();
+        var parser = new ArgumentParser();
+
+        var writer = new StringWriter();
+        var originalOut = Console.Out;
+        Console.SetOut(writer);
+
+        try
+        {
+            var result = parser.ParseArguments(new[] { "--url=https://example.com/epg" });
+
+            result.ChannelMapPath.Should().BeEmpty();
+            result.OutputPath.Should().Be(Path.Combine(Directory.GetCurrentDirectory(), "output", "guide.xml"));
+            writer.ToString().Should().Contain("Warning: No channel map path provided");
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
+    [Fact]
+    public void missing_epg_url_file_writes_warning_and_then_throws_for_missing_url()
+    {
+        ClearEnv();
+        var parser = new ArgumentParser();
+        var missingPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.txt");
+
+        var writer = new StringWriter();
+        var originalOut = Console.Out;
+        Console.SetOut(writer);
+
+        try
+        {
+            Action act = () => parser.ParseArguments(new[]
+            {
+                $"--epgUrlFiles={missingPath}",
+                "--output=/tmp/out.xml"
+            });
+
+            act.Should().Throw<ArgumentException>()
+               .WithMessage("*URL (--url) must be provided*");
+            writer.ToString().Should().Contain("The specified EPG URL file does not exist");
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
 }

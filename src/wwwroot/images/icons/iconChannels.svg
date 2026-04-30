@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-55 -90 870 870">
+  <defs>
+    <path id="channel-square" fill-rule="evenodd" d="M10 0h50a10 10 0 0 1 10 10v50a10 10 0 0 1-10 10H10A10 10 0 0 1 0 60V10A10 10 0 0 1 10 0z M21 21v28h28V21H21z"/>
+
+    <mask id="tv-cutouts" maskUnits="userSpaceOnUse">
+      <rect width="760" height="675" fill="black"/>
+      <rect x="95" y="195" width="570" height="390" rx="42" fill="white"/>
+      <circle cx="380" cy="207" r="72" fill="white"/>
+      <rect x="238" y="96" width="132" height="27" rx="13.5" transform="rotate(45 304 109.5)" fill="white"/>
+      <rect x="392" y="96" width="132" height="27" rx="13.5" transform="rotate(-45 458 109.5)" fill="white"/>
+      <circle cx="252" cy="70" r="28" fill="white"/>
+      <circle cx="508" cy="70" r="28" fill="white"/>
+      <rect x="160" y="535" width="42" height="78" rx="21" transform="rotate(12 181 574)" fill="white"/>
+      <rect x="558" y="535" width="42" height="78" rx="21" transform="rotate(-12 579 574)" fill="white"/>
+
+      <rect x="128" y="229" width="440" height="312" rx="28" fill="black"/>
+      <circle cx="600" cy="305" r="25" fill="black"/>
+      <circle cx="600" cy="382" r="25" fill="black"/>
+    </mask>
+  </defs>
+
+  <g fill="#ffffff">
+    <rect width="760" height="675" mask="url(#tv-cutouts)"/>
+
+    <use href="#channel-square" x="144" y="276"/>
+    <use href="#channel-square" x="144" y="358"/>
+    <use href="#channel-square" x="144" y="440"/>
+
+    <rect x="245" y="291" width="232" height="20" rx="10"/>
+    <rect x="245" y="327" width="160" height="20" rx="10"/>
+    <rect x="245" y="379" width="232" height="20" rx="10"/>
+    <rect x="245" y="415" width="160" height="20" rx="10"/>
+    <rect x="245" y="467" width="232" height="20" rx="10"/>
+    <rect x="245" y="503" width="160" height="20" rx="10"/>
+  </g>
+</svg>

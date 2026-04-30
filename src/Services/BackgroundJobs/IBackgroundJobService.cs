@@ -21,4 +21,9 @@ public interface IBackgroundJobService
     /// Cancels the currently running job if one exists.
     /// </summary>
     void CancelCurrent();
+
+    /// <summary>
+    /// Clears persisted background job history.
+    /// </summary>
+    void ClearHistory();
 }

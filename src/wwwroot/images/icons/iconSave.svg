@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" aria-hidden="true">
+  <defs>
+    <mask id="disk-body" maskUnits="userSpaceOnUse">
+      <rect width="1024" height="1024" fill="black"/>
+      <path fill="white" d="M119 56h470c20 0 39 8 53 22l112 112c14 14 22 33 22 53v480c0 36-29 65-65 65H119c-36 0-65-29-65-65V121c0-36 29-65 65-65z"/>
+      <path fill="black" d="M253 84h322v151c0 24-19 43-43 43H296c-24 0-43-19-43-43V84z"/>
+      <rect x="160" y="348" width="505" height="365" rx="28" fill="black"/>
+      <circle cx="710" cy="612" r="225" fill="black"/>
+      <circle cx="119" cy="681" r="14" fill="black"/>
+    </mask>
+    <mask id="download-badge" maskUnits="userSpaceOnUse">
+      <rect width="1024" height="1024" fill="black"/>
+      <circle cx="710" cy="612" r="225" fill="white"/>
+      <circle cx="710" cy="612" r="178" fill="black"/>
+      <path fill="white" d="M666 456c0-9 7-16 16-16h56c9 0 16 7 16 16v118h52c14 0 21 17 11 27l-96 96c-6 6-16 6-22 0l-96-96c-10-10-3-27 11-27h52V456z"/>
+      <rect x="610" y="728" width="200" height="34" rx="7" fill="white"/>
+    </mask>
+  </defs>
+
+  <rect width="1024" height="1024" fill="#ffffff" mask="url(#disk-body)"/>
+  <rect x="438" y="112" width="88" height="130" rx="9" fill="#ffffff"/>
+  <rect x="216" y="448" width="292" height="18" rx="9" fill="#ffffff"/>
+  <rect x="216" y="530" width="270" height="18" rx="9" fill="#ffffff"/>
+  <rect x="216" y="612" width="246" height="18" rx="9" fill="#ffffff"/>
+  <rect width="1024" height="1024" fill="#ffffff" mask="url(#download-badge)"/>
+</svg>

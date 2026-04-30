@@ -18,26 +18,26 @@
         <nav>
             <ul class="nav-menu">
                 <li class="nav-item">
-                    <a href="#" class="nav-link active">
-                        <img src="/images/icons/iconDashboard.png" alt="Dashboard" class="nav-icon">
+                    <a href="#dashboard-section" class="nav-link active" data-section-link="dashboard-section">
+                        <img src="/images/icons/iconDashboard.svg" alt="Dashboard" class="nav-icon">
                         Dashboard
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link">
-                        <img src="/images/icons/iconLinks.png" alt="Links" class="nav-icon">
+                    <a href="#epg-sources-section" class="nav-link" data-section-link="epg-sources-section">
+                        <img src="/images/icons/iconLinks.svg" alt="Links" class="nav-icon">
                         EPG Sources
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link">
-                        <img src="/images/icons/iconChannels.png" alt="Channels" class="nav-icon">
+                    <a href="#channel-mapping-section" class="nav-link" data-section-link="channel-mapping-section">
+                        <img src="/images/icons/iconChannels.svg" alt="Channels" class="nav-icon">
                         Channels
                     </a>
                 </li>
                 <li class="nav-item">
                     <a href="/guide.xml" target="_blank" rel="noopener" class="nav-link">
-                        <img src="/images/icons/iconStatus.png" alt="Status" class="nav-icon">
+                        <img src="/images/icons/iconStatus.svg" alt="Status" class="nav-icon">
                         View XML
                     </a>
                 </li>
@@ -61,15 +61,26 @@
                 <div class="user-info" id="userInfo">
                     <span id="currentUser">User</span>
                 </div>
-                <button onclick="logout()" class="btn-logout">Logout</button>
+                <button onclick="logout()" class="btn-logout"><img src="/images/icons/iconLogout.svg" alt="" class="logout-icon" aria-hidden="true"> Logout</button>
             </div>
         </div>
         
-        <div class="stats-grid">
+        <div class="stats-grid page-section" id="dashboard-section">
+            <div class="stat-card health-card" id="health-card">
+                <div class="stat-header">
+                    <div class="stat-title">System Health</div>
+                    <div class="stat-icon" id="health-icon"><img src="/images/icons/iconHealth.svg" alt="Health Status" class="health-icon-img"></div>
+                </div>
+                <div class="health-status" id="health-status">
+                    <div class="health-status-indicator" id="health-indicator"></div>
+                    <div class="health-status-text" id="health-status-main">Loading...</div>
+                </div>
+            </div>
+            
             <div class="stat-card">
                 <div class="stat-header">
                     <div class="stat-title">EPG Sources</div>
-                    <div class="stat-icon"><img src="/images/icons/iconLinks.png" alt="Links"></div>
+                    <div class="stat-icon"><img src="/images/icons/iconLinks.svg" alt="Links"></div>
                 </div>
                 <div class="stat-value" id="epg-count">-</div>
                 <div class="stat-change" id="epg-status-text">Loading...</div>
@@ -78,7 +89,7 @@
             <div class="stat-card">
                 <div class="stat-header">
                     <div class="stat-title">Channels</div>
-                    <div class="stat-icon"><img src="/images/icons/iconChannels.png" alt="Channels"></div>
+                    <div class="stat-icon"><img src="/images/icons/iconChannels.svg" alt="Channels"></div>
                 </div>
                 <div class="stat-value" id="channel-count">-</div>
                 <div class="stat-change" id="channel-status-text">Loading...</div>
@@ -87,7 +98,7 @@
             <div class="stat-card">
                 <div class="stat-header">
                     <div class="stat-title">Guide Status</div>
-                    <div class="stat-icon"><img src="/images/icons/iconStatus.png" alt="Status"></div>
+                    <div class="stat-icon"><img src="/images/icons/iconStatus.svg" alt="Status"></div>
                 </div>
                 <div class="stat-value" id="guide-size">-</div>
                 <div class="stat-change" id="guide-status-text">Loading...</div>
@@ -96,43 +107,54 @@
             <div class="stat-card">
                 <div class="stat-header">
                     <div class="stat-title">Last Update</div>
-                    <div class="stat-icon"><img src="/images/icons/iconLastUpdate.png" alt="Last Update"></div>
+                    <div class="stat-icon"><img src="/images/icons/iconLastUpdate.svg" alt="Last Update"></div>
                 </div>
                 <div class="stat-value" id="last-update">-</div>
                 <div class="stat-change" id="update-status">Loading...</div>
             </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-title">Scheduled Rebuild</div>
+                    <div class="stat-icon"><img src="/images/icons/iconRefresh.svg" alt="Scheduled Rebuild"></div>
+                </div>
+                <div class="stat-value stat-value-sm" id="schedule-next">-</div>
+                <div class="stat-change" id="schedule-status">Loading...</div>
+            </div>
         </div>
         
         <div class="content-grid">
-            <div class="card">
+            <div class="card page-section" id="epg-sources-section">
                 <div class="card-header">
-                    <img src="/images/icons/iconLinks.png" alt="Links" class="header-icon"> EPG URL Sources
+                    <img src="/images/icons/iconLinks.svg" alt="Links" class="header-icon"> EPG URL Sources
                 </div>
                 <div class="card-body">
                     <div class="file-path" id="epg-path">Loading...</div>
                     <div id="epg-status" class="status hidden"></div>
                     <textarea id="epg-content" placeholder="Enter EPG URLs, one per line...&#10;https://example.com/guide1&#10;https://example.com/guide2"></textarea>
                     <div class="button-group">
-                        <button onclick="loadEpgUrls()" class="btn-secondary"><img src="/images/icons/iconRefresh.png" alt="Reload" class="btn-icon"> Reload</button>
-                        <button onclick="saveEpgUrls()" class="btn-primary"><img src="/images/icons/iconSave.png" alt="Save" class="btn-icon"> Save URLs</button>
-                        <button onclick="testEpgUrls()" class="btn-warning"><img src="/images/icons/iconValidate.png" alt="Test" class="btn-icon"> Test Sources</button>
+                        <button onclick="loadEpgUrls()" class="btn-secondary"><img src="/images/icons/iconRefresh.svg" alt="Reload" class="btn-icon"> Reload</button>
+                        <button onclick="saveEpgUrls()" class="btn-primary"><img src="/images/icons/iconSave.svg" alt="Save" class="btn-icon"> Save URLs</button>
+                        <button onclick="testEpgUrls()" class="btn-success" id="test-sources-btn"><img src="/images/icons/iconValidate.svg" alt="Test" class="btn-icon"> Test Sources</button>
                     </div>
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card page-section" id="channel-mapping-section">
                 <div class="card-header">
-                    <img src="/images/icons/iconChannels.png" alt="Channels" class="header-icon"> Channel Mapping
+                    <div class="card-header-title">
+                        <img src="/images/icons/iconChannels.svg" alt="Channels" class="header-icon"> Channel Mapping
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="file-path" id="channel-path">Loading...</div>
                     <div id="channel-status" class="status hidden"></div>
                     <textarea id="channel-content" placeholder='Enter channel mapping JSON...&#10;{&#10;  "channels": [&#10;    {&#10;      "channel": {&#10;        "name": "APW Sports",&#10;        "channelId": "10179"&#10;      }&#10;    }&#10;  ]&#10;}'></textarea>
                     <div class="button-group">
-                        <button onclick="loadChannelMap()" class="btn-secondary"><img src="/images/icons/iconRefresh.png" alt="Reload" class="btn-icon"> Reload</button>
-                        <button onclick="validateJson()" class="btn-success"><img src="/images/icons/iconValidate.png" alt="Validate" class="btn-icon"> Validate</button>
-                        <button onclick="saveChannelMap()" class="btn-primary"><img src="/images/icons/iconSave.png" alt="Save" class="btn-icon"> Save Mapping</button>
-                        <button onclick="previewChannels()" class="btn-warning"><img src="/images/icons/iconChannels.png" alt="Preview" class="btn-icon"> Preview Channels</button>
+                        <button onclick="loadChannelMap()" class="btn-secondary"><img src="/images/icons/iconRefresh.svg" alt="Reload" class="btn-icon"> Reload</button>
+                        <button onclick="validateJson()" class="btn-success"><img src="/images/icons/iconValidate.svg" alt="Validate" class="btn-icon"> Validate</button>
+                        <button onclick="saveChannelMap()" class="btn-primary"><img src="/images/icons/iconSave.svg" alt="Save" class="btn-icon"> Save Mapping</button>
+                        <button onclick="previewChannels()" class="btn-warning" id="preview-channels-btn"><img src="/images/icons/iconChannels.svg" alt="Preview" class="btn-icon"> Preview Channels</button>
                     </div>
                 </div>
             </div>
@@ -141,29 +163,37 @@
         <div class="action-cards-grid">
             <div class="card">
                 <div class="card-body card-body-center">
-                    <div class="card-icon-large"><img src="/images/icons/iconChannels.png" alt="Channels" class="icon-lg"></div>
+                    <div class="card-icon-large"><img src="/images/icons/iconChannels.svg" alt="Channels" class="icon-lg"></div>
                     <div class="card-title">View Guide</div>
-                    <button onclick="previewGuideModal()" class="btn-warning btn-primary-large" style="margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;"><img src="/images/icons/iconChannels.png" alt="Preview" class="btn-icon"> Preview Guide</button>
+                    <button onclick="previewGuideModal()" class="btn-warning btn-primary-large action-button-large" id="preview-guide-btn"><img src="/images/icons/iconChannels.svg" alt="Preview" class="btn-icon"> Preview Guide</button>
                     <div class="card-subtitle">Download XML file</div>
-                    <a href="/guide.xml" target="_blank" rel="noopener" class="btn-primary btn-primary-large"><img src="/images/icons/iconView.png" alt="View" class="btn-icon"> View Guide XML</a>
+                    <a href="/guide.xml" target="_blank" rel="noopener" class="btn-primary btn-primary-large action-button-large"><img src="/images/icons/iconView.svg" alt="View" class="btn-icon"> View Guide XML</a>
                 </div>
             </div>
             <div class="card">
                 <div class="card-body card-body-center">
-                    <div class="icon-container"><img src="/images/icons/iconRefresh.png" alt="Rebuild" class="stat-icon"></div>
+                    <div class="icon-container"><img src="/images/icons/iconRefresh.svg" alt="Rebuild" class="stat-icon"></div>
                     <div class="card-title">Rebuild Guide</div>
                     <div class="card-subtitle">Generate new EPG data</div>
-                    <button onclick="rebuildGuide()" class="btn-primary" id="rebuild-btn" style="display: block; margin-left: auto; margin-right: auto;"><img src="/images/icons/iconRefresh.png" alt="Rebuild" class="btn-icon"> Rebuild</button>
+                    <button onclick="rebuildGuide()" class="btn-primary btn-primary-large action-button-large" id="rebuild-btn"><img src="/images/icons/iconRefresh.svg" alt="Rebuild" class="btn-icon"> Rebuild</button>
                     
                     <!-- Rebuild Status Section -->
                     <div id="rebuild-status-section" class="rebuild-status-section hidden">
                         <div class="rebuild-status-message" id="rebuild-status-message"></div>
-                        <div class="rebuild-progress-bar">
-                            <div class="rebuild-progress-fill" id="rebuild-progress-fill"></div>
-                        </div>
+                        <progress class="rebuild-progress-bar" id="rebuild-progress-fill" max="100" value="0"></progress>
                         <div class="rebuild-status-info" id="rebuild-status-info"></div>
                         <button onclick="cancelRebuild()" class="btn-danger btn-sm" id="rebuild-cancel-btn">Cancel</button>
                     </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body card-body-center">
+                    <div class="card-icon-large"><img src="/images/icons/iconSave.svg" alt="Backup" class="icon-lg"></div>
+                    <div class="card-title">Config Backup</div>
+                    <div class="card-subtitle">Export or restore EPG URLs and channel map</div>
+                    <button onclick="exportConfigBackup()" class="btn-secondary btn-primary-large action-button-large" id="export-config-backup-btn"><img src="/images/icons/iconSave.svg" alt="Export" class="btn-icon"> Export Backup</button>
+                    <button onclick="promptRestoreConfigBackup()" class="btn-success btn-primary-large action-button-large" id="restore-config-backup-btn"><img src="/images/icons/iconValidate.svg" alt="Restore" class="btn-icon"> Restore Backup</button>
+                    <input id="config-backup-file" class="hidden" type="file" accept="application/json" onchange="restoreConfigBackup(this.files[0])">
                 </div>
             </div>
         </div>
@@ -173,17 +203,18 @@
             <div class="card cron-logs-card">
                 <div class="card-header">
                     <div class="card-header-title">
-                        <img src="/images/icons/iconLog.png" alt="Logs" class="icon-log"> Rebuild Job History
+                        <img src="/images/icons/iconLog.svg" alt="Logs" class="icon-log"> Rebuild Job History
                     </div>
                 </div>
                 <div class="card-body">
                     <div class="card-header-actions">
-                        <button onclick="loadRebuildHistory()" class="btn-secondary btn-sm"><img src="/images/icons/iconRefresh.png" alt="Refresh" class="btn-icon"> Refresh</button>
+                        <button onclick="loadRebuildHistory()" class="btn-secondary btn-sm"><img src="/images/icons/iconRefresh.svg" alt="Refresh" class="btn-icon"> Refresh</button>
+                        <button onclick="clearRebuildHistory()" class="btn-danger btn-sm" id="clear-rebuild-history-btn">Clear</button>
                     </div>
                     <div id="job-history-status" class="status hidden"></div>
                     <div class="cron-logs-container">
                         <div id="job-history-empty" class="empty-state">
-                            <img src="/images/icons/iconLog.png" alt="No logs" class="icon-log">
+                            <img src="/images/icons/iconLog.svg" alt="No logs" class="icon-log">
                             <div class="empty-title">No rebuild jobs yet</div>
                             <div class="empty-subtitle">Rebuild job history will appear here when jobs are executed</div>
                         </div>
@@ -198,18 +229,18 @@
             <div class="card cron-logs-card">
                 <div class="card-header">
                     <div class="card-header-title">
-                        <img src="/images/icons/iconLog.png" alt="Logs" class="icon-log"> Cron Run History
+                        <img src="/images/icons/iconLog.svg" alt="Logs" class="icon-log"> Cron Run History
                     </div>
                 </div>
                 <div class="card-body">
                     <div class="card-header-actions">
-                        <button onclick="loadCronLogs()" class="btn-secondary btn-sm"><img src="/images/icons/iconRefresh.png" alt="Refresh" class="btn-icon"> Refresh</button>
+                        <button onclick="loadCronLogs()" class="btn-secondary btn-sm"><img src="/images/icons/iconRefresh.svg" alt="Refresh" class="btn-icon"> Refresh</button>
                         <button onclick="clearCronLogs()" class="btn-danger btn-sm">Clear</button>
                     </div>
                     <div id="cron-logs-status" class="status hidden"></div>
                     <div class="cron-logs-container">
                         <div id="cron-logs-empty" class="empty-state">
-                            <img src="/images/icons/iconLog.png" alt="No logs" class="icon-log">
+                            <img src="/images/icons/iconLog.svg" alt="No logs" class="icon-log">
                             <div class="empty-title">No cron runs logged yet</div>
                             <div class="empty-subtitle">Cron job runs will appear here when they execute</div>
                         </div>
@@ -241,28 +272,27 @@
     <!-- Guide Preview Modal -->
     <div id="guidePreviewModal" class="modal hidden">
         <div class="modal-overlay" onclick="closeGuidePreviewModal()"></div>
-        <div class="modal-content" style="max-width: 98%; max-height: 95vh; min-width: 1200px;">
-            <div class="modal-header" style="display: flex; flex-direction: column; gap: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3>TV Guide Preview</h3>
-                    <button class="modal-close" onclick="closeGuidePreviewModal()">✕</button>
-                </div>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <div style="display: flex; gap: 8px; background: #16213e; padding: 6px; border-radius: 4px; border: 1px solid #4a5568;">
-                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: #a78bfa;">
-                            <input type="radio" name="guideSearchType" value="channel" checked onchange="updateGuideSearchType('channel')" style="cursor: pointer;">
+        <div class="modal-content guide-preview-modal-content">
+            <button class="modal-close modal-close-floating" onclick="closeGuidePreviewModal()">✕</button>
+            <div class="modal-header preview-modal-header">
+                <h3 class="guide-preview-title">TV Guide Preview</h3>
+                <div class="guide-preview-toolbar">
+                    <div class="guide-preview-search-type">
+                        <label class="guide-preview-radio-label">
+                            <input class="guide-preview-radio" type="radio" name="guideSearchType" value="channel" checked onchange="updateGuideSearchType('channel')">
                             Channel Name
                         </label>
-                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: #a78bfa;">
-                            <input type="radio" name="guideSearchType" value="show" onchange="updateGuideSearchType('show')" style="cursor: pointer;">
+                        <div class="guide-preview-radio-divider"></div>
+                        <label class="guide-preview-radio-label">
+                            <input class="guide-preview-radio" type="radio" name="guideSearchType" value="show" onchange="updateGuideSearchType('show')">
                             Show Name
                         </label>
                     </div>
-                    <input type="text" id="guideSearchInput" placeholder="Search..." style="padding: 8px 12px; border-radius: 4px; border: 1px solid #4a5568; background: #16213e; color: #e0e0e0; font-size: 13px; flex: 1; max-width: 400px;" onkeyup="filterGuideChannels()">
+                    <input class="guide-preview-search-input" type="text" id="guideSearchInput" placeholder="Search channels or shows..." onkeyup="filterGuideChannels()">
                 </div>
             </div>
-            <div class="modal-body" style="overflow-x: auto; overflow-y: auto; max-height: 88vh;">
-                <div id="guidePreviewContent" style="display: inline-block; vertical-align: top;"></div>
+            <div class="modal-body guide-preview-modal-body">
+                <div id="guidePreviewContent" class="guide-preview-content"></div>
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeGuidePreviewModal()">Close</button>
@@ -270,12 +300,45 @@
         </div>
     </div>
 
+    <!-- Channel Preview Modal -->
+    <div id="channelPreviewModal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeChannelPreviewModal()"></div>
+        <div class="modal-content channel-preview-modal-content">
+            <button class="modal-close modal-close-floating" onclick="closeChannelPreviewModal()">✕</button>
+            <div class="modal-header preview-modal-header channel-preview-header">
+                <h3 class="channel-preview-title">Channel Mapping Preview</h3>
+                <div class="channel-preview-tools">
+                    <input id="channel-preview-search" class="channel-preview-search" type="search" placeholder="Search preview channels..." oninput="filterChannelPreview()">
+                    <select id="channel-preview-filter" class="channel-preview-filter" onchange="filterChannelPreview()">
+                        <option value="all">All preview rows</option>
+                        <option value="mapped">Mapped only</option>
+                        <option value="unmapped">Unmapped only</option>
+                        <option value="blank-id">Blank channel IDs</option>
+                        <option value="duplicates">Duplicate IDs</option>
+                    </select>
+                </div>
+                <div id="channelPreviewSummary" class="channel-preview-summary"></div>
+            </div>
+            <div class="modal-body channel-preview-modal-body">
+                <div id="channelPreviewContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeChannelPreviewModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
+
     <script>
+        const pendingActions = new Set();
+
         // Global ESC key handler to close all modals
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') {
                 document.getElementById('confirmModal').classList.add('hidden');
                 document.getElementById('guidePreviewModal').classList.add('hidden');
+                document.getElementById('channelPreviewModal').classList.add('hidden');
             }
         });
 
@@ -322,11 +385,11 @@
                 if (response.ok) {
                     window.location.href = '/login.html';
                 } else {
-                    alert('Logout failed. Please try again.');
+                    showToast('Logout failed. Please try again.', 'error');
                 }
             } catch (error) {
                 console.error('Logout error:', error);
-                alert('Error during logout: ' + error.message);
+                showToast('Error during logout: ' + error.message, 'error');
             }
         }
 
@@ -352,11 +415,62 @@
             return response.json();
         }
 
+        function initializeSectionNavigation() {
+            const navLinks = Array.from(document.querySelectorAll('[data-section-link]'));
+            const sections = navLinks
+                .map(link => document.getElementById(link.dataset.sectionLink))
+                .filter(Boolean);
+
+            function setActiveSection(sectionId) {
+                navLinks.forEach(link => {
+                    link.classList.toggle('active', link.dataset.sectionLink === sectionId);
+                });
+            }
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', event => {
+                    const target = document.getElementById(link.dataset.sectionLink);
+                    if (!target) return;
+
+                    event.preventDefault();
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    setActiveSection(link.dataset.sectionLink);
+                    history.replaceState(null, '', `#${link.dataset.sectionLink}`);
+                });
+            });
+
+            const observer = new IntersectionObserver(entries => {
+                const visibleEntry = entries
+                    .filter(entry => entry.isIntersecting)
+                    .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+
+                if (visibleEntry) {
+                    setActiveSection(visibleEntry.target.id);
+                }
+            }, {
+                rootMargin: '-20% 0px -55% 0px',
+                threshold: [0.2, 0.4, 0.6]
+            });
+
+            sections.forEach(section => observer.observe(section));
+
+            if (window.location.hash) {
+                const initialSection = document.getElementById(window.location.hash.slice(1));
+                if (initialSection) {
+                    setActiveSection(initialSection.id);
+                    requestAnimationFrame(() => initialSection.scrollIntoView({ block: 'start' }));
+                    return;
+                }
+            }
+
+            setActiveSection('dashboard-section');
+        }
+
         function showStatus(elementId, message, type = 'info', allowHtml = false) {
             const element = document.getElementById(elementId);
             if (!element) return;
 
-            element.classList.remove('status-info', 'status-success', 'status-error');
+            element.classList.remove('status-info', 'status-success', 'status-error', 'status-warning');
             element.classList.add('status', `status-${type}`);
             if (allowHtml) {
                 element.innerHTML = message;
@@ -375,6 +489,79 @@
             }
         }
 
+        function showToast(message, type = 'info', timeoutMs = 4200) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+
+            const messageElement = document.createElement('div');
+            messageElement.className = 'toast-message';
+            messageElement.textContent = message;
+
+            const closeButton = document.createElement('button');
+            closeButton.type = 'button';
+            closeButton.className = 'toast-close';
+            closeButton.setAttribute('aria-label', 'Dismiss notification');
+            closeButton.textContent = 'x';
+            closeButton.addEventListener('click', () => dismissToast(toast));
+
+            toast.append(messageElement, closeButton);
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => toast.classList.add('toast-visible'));
+            setTimeout(() => dismissToast(toast), timeoutMs);
+        }
+
+        function dismissToast(toast) {
+            if (!toast || toast.classList.contains('toast-leaving')) return;
+
+            toast.classList.remove('toast-visible');
+            toast.classList.add('toast-leaving');
+            setTimeout(() => toast.remove(), 180);
+        }
+
+        function setButtonLoading(buttonId, isLoading, loadingText) {
+            const button = document.getElementById(buttonId);
+            if (!button) return;
+
+            if (isLoading) {
+                if (!button.dataset.originalHtml) {
+                    button.dataset.originalHtml = button.innerHTML;
+                }
+
+                button.disabled = true;
+                button.setAttribute('aria-busy', 'true');
+                button.classList.add('button-loading');
+                button.innerHTML = `<span class="button-spinner" aria-hidden="true"></span>${escapeHtml(loadingText || 'Working...')}`;
+                return;
+            }
+
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            button.classList.remove('button-loading');
+
+            if (button.dataset.originalHtml) {
+                button.innerHTML = button.dataset.originalHtml;
+                delete button.dataset.originalHtml;
+            }
+        }
+
+        function beginAction(actionKey, buttonId, loadingText) {
+            if (pendingActions.has(actionKey)) return false;
+
+            pendingActions.add(actionKey);
+            setButtonLoading(buttonId, true, loadingText);
+            return true;
+        }
+
+        function endAction(actionKey, buttonId) {
+            pendingActions.delete(actionKey);
+            setButtonLoading(buttonId, false);
+        }
+
         // Helper function to escape HTML entities
         function escapeHtml(text) {
             const map = {
@@ -391,11 +578,7 @@
         function toggleTestDetail(detailId) {
             const detail = document.getElementById(detailId);
             if (detail) {
-                if (detail.style.display === 'none') {
-                    detail.style.display = 'block';
-                } else {
-                    detail.style.display = 'none';
-                }
+                detail.classList.toggle('hidden-detail');
             }
         }
 
@@ -432,6 +615,14 @@
             document.getElementById('guidePreviewModal').classList.add('hidden');
         }
 
+        function openChannelPreviewModal() {
+            document.getElementById('channelPreviewModal').classList.remove('hidden');
+        }
+
+        function closeChannelPreviewModal() {
+            document.getElementById('channelPreviewModal').classList.add('hidden');
+        }
+
         // Global guide data storage
         let _guideData = {
             channelMap: {},
@@ -451,28 +642,27 @@
             const { channelMap, channelIds, timeSlots, programsByChannel } = _guideData;
             
             // Render grid
-            let html = '<div style="background: #1a1a2e; border: 1px solid #4a5568; border-radius: 8px; display: inline-block; min-width: ' + (140 + timeSlots.length * 140) + 'px;">';
+            let html = '<div class="guide-grid">';
             
             // Header with time slots
-            const gridColumns = `140px repeat(${timeSlots.length}, 140px)`;
-            html += `<div style="display: grid; grid-template-columns: ${gridColumns}; gap: 1px; background: #4a5568;">`;
-            html += '<div style="background: #0f3460; padding: 10px; font-weight: bold; color: #a78bfa; width: 140px;">Channel</div>';
+            html += '<div class="guide-grid-row guide-grid-header-row">';
+            html += '<div class="guide-grid-header-cell">Channel</div>';
             
             for (const slot of timeSlots) {
                 const timeStr = slot.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-                html += `<div style="background: #0f3460; padding: 10px; font-weight: bold; color: #a78bfa; text-align: center; font-size: 11px; width: 140px;">${timeStr}</div>`;
+                html += `<div class="guide-grid-time-cell">${timeStr}</div>`;
             }
             html += '</div>';
             
             // Channel rows
             for (const channelId of filteredChannels) {
-                html += `<div style="display: grid; grid-template-columns: ${gridColumns}; gap: 1px; background: #4a5568;">`;
+                html += '<div class="guide-grid-row">';
                 
                 // Channel name with ID
                 const displayName = channelMap[channelId] || channelId;
-                html += `<div style="background: #16213e; padding: 8px; color: #e0e0e0; font-weight: 600; font-size: 11px; overflow: hidden; white-space: nowrap; width: 140px;" title="${escapeHtml(displayName)}">
-                    <div style="overflow: hidden; text-overflow: ellipsis;">${escapeHtml(displayName.substring(0, 20))}</div>
-                    <div style="color: #888; font-size: 9px; margin-top: 2px;">${escapeHtml(channelId)}</div>
+                html += `<div class="guide-grid-channel-cell" title="${escapeHtml(displayName)}">
+                    <div class="guide-grid-channel-name">${escapeHtml(displayName.substring(0, 20))}</div>
+                    <div class="guide-grid-channel-id">${escapeHtml(channelId)}</div>
                 </div>`;
                 
                 // Program cells
@@ -485,12 +675,12 @@
                     
                     if (prog) {
                         const startTime = prog.start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-                        html += `<div style="background: #c9a961; padding: 8px; border-radius: 4px; margin: 2px; display: flex; flex-direction: column; justify-content: space-between; width: 140px; box-sizing: border-box;">`;
-                        html += `<div style="font-weight: bold; color: #000; font-size: 11px; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(prog.title.substring(0, 25))}</div>`;
-                        html += `<div style="color: #333; font-size: 10px;">${startTime}</div>`;
+                        html += '<div class="guide-grid-program-cell">';
+                        html += `<div class="guide-grid-program-title">${escapeHtml(prog.title.substring(0, 25))}</div>`;
+                        html += `<div class="guide-grid-program-time">${startTime}</div>`;
                         html += `</div>`;
                     } else {
-                        html += `<div style="background: #2a2a3e; padding: 8px; border-radius: 4px; margin: 2px; width: 140px; box-sizing: border-box;"></div>`;
+                        html += '<div class="guide-grid-empty-cell"></div>';
                     }
                 }
                 
@@ -528,14 +718,19 @@
                 const msg = _guideSearchType === 'channel' 
                     ? 'No channels match your search' 
                     : 'No shows match your search';
-                document.getElementById('guidePreviewContent').innerHTML = `<p style="color: #ffa500; padding: 20px;">${msg}</p>`;
+                document.getElementById('guidePreviewContent').innerHTML = `<p class="guide-preview-message guide-preview-message-warning">${msg}</p>`;
             } else {
                 renderGuideGrid(filtered);
             }
         }
 
         async function previewGuideModal() {
-            document.getElementById('guidePreviewContent').innerHTML = '<p style="text-align: center; color: #aaa;">Loading guide data...</p>';
+            if (!beginAction('preview-guide', 'preview-guide-btn', 'Loading...')) {
+                showToast('Guide preview is already loading.', 'info');
+                return;
+            }
+
+            document.getElementById('guidePreviewContent').innerHTML = '<p class="guide-preview-message guide-preview-message-muted">Loading guide data...</p>';
             document.getElementById('guideSearchInput').value = '';
             document.getElementById('guidePreviewModal').classList.remove('hidden');
 
@@ -546,7 +741,7 @@
                 const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
 
                 if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
-                    document.getElementById('guidePreviewContent').innerHTML = '<p style="color: #f87171;">Failed to parse XML guide data</p>';
+                    document.getElementById('guidePreviewContent').innerHTML = '<p class="guide-preview-message guide-preview-message-error">Failed to parse XML guide data</p>';
                     return;
                 }
 
@@ -554,7 +749,7 @@
                 const programs = xmlDoc.getElementsByTagName('programme');
 
                 if (channels.length === 0) {
-                    document.getElementById('guidePreviewContent').innerHTML = '<p style="color: #ffa500;">No guide data available. Please rebuild the guide first.</p>';
+                    document.getElementById('guidePreviewContent').innerHTML = '<p class="guide-preview-message guide-preview-message-warning">No guide data available. Please rebuild the guide first.</p>';
                     return;
                 }
 
@@ -618,7 +813,7 @@
                 }
 
                 if (timeSlots.length === 0) {
-                    document.getElementById('guidePreviewContent').innerHTML = '<p style="color: #ffa500;">No programs found in the guide data</p>';
+                    document.getElementById('guidePreviewContent').innerHTML = '<p class="guide-preview-message guide-preview-message-warning">No programs found in the guide data</p>';
                     return;
                 }
 
@@ -633,22 +828,66 @@
 
                 // Render initial grid
                 renderGuideGrid(channelList);
+                showToast('Guide preview loaded.', 'success');
             } catch (error) {
                 console.error('Error previewing guide:', error);
-                document.getElementById('guidePreviewContent').innerHTML = `<p style="color: #f87171;">Error loading guide: ${error.message}</p>`;
+                document.getElementById('guidePreviewContent').innerHTML = `<p class="guide-preview-message guide-preview-message-error">Error loading guide: ${escapeHtml(error.message)}</p>`;
+                showToast(`Error loading guide: ${error.message}`, 'error');
+            } finally {
+                endAction('preview-guide', 'preview-guide-btn');
+            }
+        }
+
+        // Health panel management
+        async function updateHealthPanel(healthData) {
+            const card = document.getElementById('health-card');
+            const indicator = document.getElementById('health-indicator');
+            const statusMain = document.getElementById('health-status-main');
+
+            try {
+                const status = healthData?.status || 'unknown';
+
+                // Update card styling based on status
+                card.classList.remove('healthy', 'degraded', 'unhealthy');
+                indicator.classList.remove('healthy', 'degraded', 'unhealthy');
+                
+                if (status === 'healthy') {
+                    card.classList.add('healthy');
+                    indicator.classList.add('healthy');
+                    statusMain.textContent = 'Healthy';
+                } else if (status === 'degraded') {
+                    card.classList.add('degraded');
+                    indicator.classList.add('degraded');
+                    statusMain.textContent = 'Degraded';
+                } else if (status === 'unhealthy') {
+                    card.classList.add('unhealthy');
+                    indicator.classList.add('unhealthy');
+                    statusMain.textContent = 'Unhealthy';
+                } else {
+                    statusMain.textContent = 'Unknown';
+                }
+
+            } catch (error) {
+                console.error('Error updating health panel:', error);
+                statusMain.textContent = 'Error';
+                indicator.classList.remove('healthy', 'degraded', 'unhealthy');
             }
         }
 
         // Load status information
         async function loadStatus() {
             try {
-                const [configStatus, guideStatus, epgResponse, channelResponse, healthResponse] = await Promise.all([
+                const [configStatus, guideStatus, epgResponse, channelResponse, healthResponse, scheduleResponse] = await Promise.all([
                     apiCall('status'),
                     fetch('/status', { credentials: 'include' }).then(r => r.json()),
                     apiCall('epg-urls'),
                     apiCall('channel-map'),
-                    fetch('/health', { credentials: 'include' }).then(r => r.json())
+                    fetch('/health', { credentials: 'include' }).then(r => r.json()),
+                    fetch('/api/cronlogs/schedule', { credentials: 'include' }).then(r => r.json())
                 ]);
+
+                // ----- Health Status -----
+                await updateHealthPanel(healthResponse);
 
                 // ----- Version -----
                 if (healthResponse?.version) {
@@ -765,10 +1004,13 @@
                         No updates found
                     `;
                 }
+
+                // ----- Schedule Status -----
+                updateScheduleStatus(scheduleResponse);
             } catch (error) {
                 console.error('Error loading status:', error);
 
-                ['epg-status-text', 'channel-status-text', 'guide-status-text', 'update-status']
+                ['epg-status-text', 'channel-status-text', 'guide-status-text', 'update-status', 'schedule-status']
                     .forEach(id => {
                         document.getElementById(id).innerHTML = `
                             <span class="indicator error"></span>
@@ -776,6 +1018,44 @@
                         `;
                     });
             }
+        }
+
+        function updateScheduleStatus(schedule) {
+            const nextElement = document.getElementById('schedule-next');
+            const statusElement = document.getElementById('schedule-status');
+
+            if (!schedule?.enabled) {
+                nextElement.textContent = 'Off';
+                statusElement.innerHTML = '<span class="indicator warning"></span>No cron schedule found';
+                return;
+            }
+
+            if (schedule.nextRunUtc) {
+                const nextRun = new Date(schedule.nextRunUtc);
+                nextElement.textContent = nextRun.toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                });
+            } else {
+                nextElement.textContent = schedule.expression || 'Scheduled';
+            }
+
+            const lastRunText = schedule.lastRunAt
+                ? `Last: ${new Date(schedule.lastRunAt).toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                })}`
+                : 'No cron runs logged yet';
+
+            const indicator = schedule.lastRunSuccess === false ? 'error' : 'success';
+            statusElement.innerHTML = `
+                <span class="indicator ${indicator}"></span>
+                ${escapeHtml(schedule.expression || 'Cron enabled')} • ${escapeHtml(lastRunText)}
+            `;
         }
 
 
@@ -892,7 +1172,8 @@
                 const response = await apiCall('validate-json', 'POST', { content });
                 
                 if (response.valid) {
-                    showStatus('channel-status', 'JSON is valid! <img src="/images/icons/iconValidate.png" alt="Valid" class="icon-inline-small">', 'success', true);
+                    const statusType = response.warnings?.length > 0 ? 'warning' : 'success';
+                    showStatus('channel-status', buildChannelMapStatusMessage(response, true), statusType, true);
                 } else {
                     showStatus('channel-status', 'Invalid JSON: ' + response.error, 'error');
                 }
@@ -918,11 +1199,11 @@
                         'error'
                     );
                 } else {
+                    const statusType = response.warnings?.length > 0 ? 'warning' : 'success';
                     showStatus(
                         'channel-status',
-                        response.message +
-                        ' <img src="/images/icons/iconValidate.png" alt="Saved" class="icon-inline-small">',
-                        'success',
+                        buildChannelMapStatusMessage(response, false),
+                        statusType,
                         true
                     );
                     await loadStatus(); // Refresh status
@@ -939,11 +1220,95 @@
             }
         }
 
+        async function exportConfigBackup() {
+            if (!beginAction('export-config-backup', 'export-config-backup-btn', 'Exporting...')) {
+                showToast('Config backup export is already running.', 'info');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/config/backup', { credentials: 'include' });
+                if (!response.ok) {
+                    throw new Error(`Export failed: ${response.status}`);
+                }
+
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const disposition = response.headers.get('content-disposition') || '';
+                const fileNameMatch = disposition.match(/filename="?([^"]+)"?/i);
+                link.href = url;
+                link.download = fileNameMatch?.[1] || `xmltvguide-config-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(url);
+                showToast('Config backup exported.', 'success');
+            } catch (error) {
+                showToast(`Error exporting config backup: ${error.message}`, 'error');
+            } finally {
+                endAction('export-config-backup', 'export-config-backup-btn');
+            }
+        }
+
+        function promptRestoreConfigBackup() {
+            const input = document.getElementById('config-backup-file');
+            input.value = '';
+            input.click();
+        }
+
+        async function restoreConfigBackup(file) {
+            if (!file) return;
+
+            const confirmed = await showConfirmModal(
+                'Restore Config Backup',
+                'This will replace the current EPG URLs and channel map. Continue?'
+            );
+            if (!confirmed) return;
+
+            if (!beginAction('restore-config-backup', 'restore-config-backup-btn', 'Restoring...')) {
+                showToast('Config backup restore is already running.', 'info');
+                return;
+            }
+
+            try {
+                const backup = JSON.parse(await file.text());
+                const response = await fetch('/api/config/restore', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(backup)
+                });
+
+                const result = await response.json();
+                if (!response.ok || result.error) {
+                    throw new Error(result.error || `Restore failed: ${response.status}`);
+                }
+
+                await loadEpgUrls();
+                await loadChannelMap();
+                await loadStatus();
+                showStatus('channel-status', buildChannelMapStatusMessage(result, false), result.warnings?.length > 0 ? 'warning' : 'success', true);
+                showToast('Config backup restored.', 'success');
+            } catch (error) {
+                showToast(`Error restoring config backup: ${error.message}`, 'error');
+            } finally {
+                endAction('restore-config-backup', 'restore-config-backup-btn');
+            }
+        }
+
 
         // Rebuild guide with status tracking
         let rebuildStatusPollInterval;
 
         async function rebuildGuide() {
+            if (!beginAction('rebuild-guide', 'rebuild-btn', 'Starting...')) {
+                showToast('A rebuild is already starting or running.', 'info');
+                return;
+            }
+
+            let keepRebuildButtonBusy = false;
+
             try {
                 const response = await fetch('/rebuild', {
                     method: 'POST',
@@ -957,19 +1322,27 @@
 
                 if (response.status === 202 || response.ok) {
                     // Started successfully
+                    keepRebuildButtonBusy = true;
                     showRebuildStatus();
                     startRebuildStatusPolling();
                     showStatus('rebuild-status-section', 'Rebuild job started...', 'info', false);
+                    showToast('Rebuild job started.', 'success');
                 } else if (response.status === 409) {
                     // Conflict - job already running
+                    keepRebuildButtonBusy = true;
                     showRebuildStatus();
                     startRebuildStatusPolling();
                     showStatus('rebuild-status-section', 'A rebuild is already in progress', 'error', false);
+                    showToast('A rebuild is already in progress.', 'warning');
                 } else {
-                    alert('Error: ' + (result.message || 'Unknown error'));
+                    showToast('Error: ' + (result.message || 'Unknown error'), 'error');
                 }
             } catch (error) {
-                alert('Network error: ' + error.message);
+                showToast('Network error: ' + error.message, 'error');
+            } finally {
+                if (!keepRebuildButtonBusy) {
+                    endAction('rebuild-guide', 'rebuild-btn');
+                }
             }
         }
 
@@ -981,6 +1354,7 @@
         function hideRebuildStatus() {
             document.getElementById('rebuild-btn').classList.remove('hidden');
             document.getElementById('rebuild-status-section').classList.add('hidden');
+            endAction('rebuild-guide', 'rebuild-btn');
         }
 
         async function pollRebuildStatus() {
@@ -1002,7 +1376,7 @@
                     
                     // Show some progress (simulate)
                     const progressPercent = status.progressPercent || 50;
-                    document.getElementById('rebuild-progress-fill').style.width = progressPercent + '%';
+                    document.getElementById('rebuild-progress-fill').value = progressPercent;
                     document.getElementById('rebuild-status-info').textContent = `${progressPercent}% complete`;
                 } else {
                     // Job completed
@@ -1010,6 +1384,7 @@
                     
                     // Refresh history and hide status
                     await loadRebuildHistory();
+                    showToast('Rebuild finished.', 'success');
                     setTimeout(() => {
                         hideRebuildStatus();
                         loadStatus();
@@ -1037,6 +1412,11 @@
         }
 
         async function cancelRebuild() {
+            if (!beginAction('cancel-rebuild', 'rebuild-cancel-btn', 'Cancelling...')) {
+                showToast('Cancellation is already being sent.', 'info');
+                return;
+            }
+
             try {
                 const response = await fetch('/api/rebuild/cancel', {
                     method: 'POST',
@@ -1046,11 +1426,14 @@
                 if (response.ok) {
                     const result = await response.json();
                     showStatus('rebuild-status-section', 'Cancellation request sent', 'info', false);
+                    showToast('Cancellation request sent.', 'info');
                 } else {
-                    alert('Failed to cancel rebuild');
+                    showToast('Failed to cancel rebuild.', 'error');
                 }
             } catch (error) {
-                alert('Error cancelling rebuild: ' + error.message);
+                showToast('Error cancelling rebuild: ' + error.message, 'error');
+            } finally {
+                endAction('cancel-rebuild', 'rebuild-cancel-btn');
             }
         }
 
@@ -1108,6 +1491,43 @@
                 document.getElementById('job-history-list').classList.remove('hidden');
             } catch (error) {
                 console.error('Error loading rebuild history:', error);
+                showStatus('job-history-status', `Error loading rebuild history: ${error.message}`, 'error');
+            }
+        }
+
+        async function clearRebuildHistory() {
+            const confirmed = await showConfirmModal(
+                'Clear Rebuild History',
+                'Are you sure you want to clear all rebuild job history? This action cannot be undone.'
+            );
+            if (!confirmed) {
+                return;
+            }
+
+            if (!beginAction('clear-rebuild-history', 'clear-rebuild-history-btn', 'Clearing...')) {
+                showToast('Rebuild history is already being cleared.', 'info');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/rebuild/history', {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to clear rebuild history: ${response.status}`);
+                }
+
+                await loadRebuildHistory();
+                showStatus('job-history-status', 'Rebuild job history cleared successfully', 'success');
+                showToast('Rebuild job history cleared.', 'success');
+            } catch (error) {
+                console.error('Error clearing rebuild history:', error);
+                showStatus('job-history-status', `Error clearing rebuild history: ${error.message}`, 'error');
+                showToast(`Error clearing rebuild history: ${error.message}`, 'error');
+            } finally {
+                endAction('clear-rebuild-history', 'clear-rebuild-history-btn');
             }
         }
 
@@ -1179,7 +1599,7 @@
             const urls = urlsText.split('\n').map(u => u.trim()).filter(u => u.length > 0);
 
             if (urls.length === 0) {
-                alert('Please enter at least one URL');
+                showToast('Please enter at least one URL.', 'warning');
                 return;
             }
 
@@ -1191,6 +1611,11 @@
                 if (!confirmed) {
                     return;
                 }
+            }
+
+            if (!beginAction('test-sources', 'test-sources-btn', 'Testing...')) {
+                showToast('Source testing is already running.', 'info');
+                return;
             }
 
             showStatus('epg-status', 'Testing sources...', 'info');
@@ -1209,37 +1634,34 @@
                     results.push({ url, ...result });
                 }
 
-                let message = '<strong>Source Test Results:</strong><div style="margin-top: 12px;">';
+                let message = '<strong>Source Test Results:</strong><div class="source-test-results">';
                 let allSuccess = true;
 
                 for (let i = 0; i < results.length; i++) {
                     const result = results[i];
                     const status = result.success ? '✓' : '✕';
                     const statusClass = result.success ? 'test-success' : 'test-error';
-                    const badgeStyle = result.success 
-                        ? 'background: rgba(16, 185, 129, 0.3); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.5);'
-                        : 'background: rgba(239, 68, 68, 0.3); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.5);';
+                    const badgeClass = result.success ? 'source-test-badge-pass' : 'source-test-badge-fail';
                     const badgeText = result.success ? 'PASS' : 'FAIL';
-                    const expandId = `test-detail-${i}`;
                     const detailId = `test-detail-content-${i}`;
                     
-                    message += `<div class="${statusClass}" style="margin-bottom: 10px; padding: 10px; border-radius: 6px;">`;
-                    message += `<div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;" onclick="toggleTestDetail('${detailId}')">`;
-                    message += `<div style="flex: 1; min-width: 0;"><strong>${status} ${result.url}</strong></div>`;
-                    message += `<span style="font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 4px; margin-left: 12px; white-space: nowrap; ${badgeStyle}">[${badgeText}]</span>`;
+                    message += `<div class="${statusClass} source-test-item">`;
+                    message += `<div class="source-test-summary" onclick="toggleTestDetail('${detailId}')">`;
+                    message += `<div class="source-test-url"><strong>${status} ${escapeHtml(result.url)}</strong></div>`;
+                    message += `<span class="source-test-badge ${badgeClass}">[${badgeText}]</span>`;
                     message += `</div>`;
                     
-                    message += `<div id="${detailId}" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1);">`;
-                    message += `<div style="font-size: 12px; color: #e0e0e0; word-break: break-word; line-height: 1.5;">`;
+                    message += `<div id="${detailId}" class="source-test-detail hidden-detail">`;
+                    message += '<div class="source-test-detail-body">';
                     message += `<strong>Message:</strong> ${escapeHtml(result.message)}<br>`;
                     
                     if (!result.success) {
                         allSuccess = false;
                         if (result.reachability?.error) {
-                            message += `<strong style="color: #f87171;">Error:</strong> ${escapeHtml(result.reachability.error)}<br>`;
+                            message += `<strong class="inline-error-label">Error:</strong> ${escapeHtml(result.reachability.error)}<br>`;
                         }
                         if (result.format?.jsonError) {
-                            message += `<strong style="color: #f87171;">JSON Error:</strong> ${escapeHtml(result.format.jsonError)}<br>`;
+                            message += `<strong class="inline-error-label">JSON Error:</strong> ${escapeHtml(result.format.jsonError)}<br>`;
                         }
                     } else {
                         if (result.reachability) {
@@ -1255,67 +1677,316 @@
                 
                 message += '</div>';
                 showStatus('epg-status', message, allSuccess ? 'success' : 'error', true);
+                showToast(allSuccess ? 'All sources passed.' : 'Some sources failed.', allSuccess ? 'success' : 'error');
             } catch (error) {
                 showStatus('epg-status', `Error testing sources: ${error.message}`, 'error');
+                showToast(`Error testing sources: ${error.message}`, 'error');
+            } finally {
+                endAction('test-sources', 'test-sources-btn');
             }
         }
 
-        // Preview detected channels from a source
+        function buildChannelMapStatusMessage(response, isValidationOnly) {
+            const hasWarnings = response.warnings?.length > 0;
+            const defaultMessage = isValidationOnly
+                ? (hasWarnings ? 'Channel map is valid JSON but has warnings' : 'Valid channel map JSON')
+                : (hasWarnings ? 'Channel map saved with warnings' : 'Channel map saved successfully');
+
+            let message = `${escapeHtml(response.message || defaultMessage)} <img src="/images/icons/iconValidate.svg" alt="Valid" class="icon-inline-small">`;
+
+            if (response.analysis) {
+                message += `<br><span class="channel-map-analysis-summary">Entries: ${response.analysis.totalEntries}, Valid: ${response.analysis.validEntries}</span>`;
+            }
+
+            if (response.warnings?.length > 0) {
+                message += '<div class="channel-map-warning-block">';
+                message += '<strong class="channel-map-warning-title">Warnings:</strong>';
+                message += '<ul class="channel-map-warning-list">';
+                for (const warning of response.warnings) {
+                    message += `<li>${escapeHtml(warning)}</li>`;
+                }
+                message += '</ul></div>';
+            }
+
+            return message;
+        }
+
+        function aggregatePreviewChannels(previewResults) {
+            const aggregatedMap = new Map();
+
+            for (const result of previewResults) {
+                if (!result.success) continue;
+
+                for (const channel of (result.detectedChannels || [])) {
+                    const key = channel.id;
+                    if (!aggregatedMap.has(key)) {
+                        aggregatedMap.set(key, {
+                            id: channel.id,
+                            displayName: channel.displayName,
+                            mappedName: channel.mappedName,
+                            isMapped: channel.isMapped,
+                            programCount: 0,
+                            sources: new Set(),
+                            displayNames: new Set()
+                        });
+                    }
+
+                    const aggregate = aggregatedMap.get(key);
+                    aggregate.programCount += channel.programCount || 0;
+                    aggregate.isMapped = aggregate.isMapped || channel.isMapped;
+                    aggregate.mappedName = aggregate.mappedName || channel.mappedName;
+                    aggregate.displayName = aggregate.displayName || channel.displayName;
+                    aggregate.displayNames.add(channel.displayName);
+
+                    for (const source of (channel.sources || [])) {
+                        aggregate.sources.add(source);
+                    }
+                }
+            }
+
+            return Array.from(aggregatedMap.values())
+                .map(channel => ({
+                    id: channel.id,
+                    displayName: channel.displayName,
+                    mappedName: channel.mappedName,
+                    isMapped: channel.isMapped,
+                    programCount: channel.programCount,
+                    sourceCount: channel.sources.size,
+                    sourceList: Array.from(channel.sources),
+                    alternateDisplayNames: Array.from(channel.displayNames).filter(name => name && name !== channel.displayName)
+                }))
+                .sort((left, right) => {
+                    if (left.isMapped !== right.isMapped)
+                        return left.isMapped ? -1 : 1;
+
+                    return (left.displayName || left.id).localeCompare(right.displayName || right.id);
+                });
+        }
+
+        function renderChannelPreviewTable(channels) {
+            const idCounts = new Map();
+            for (const channel of channels) {
+                const channelId = String(channel.id || '').trim();
+                if (channelId) {
+                    idCounts.set(channelId, (idCounts.get(channelId) || 0) + 1);
+                }
+            }
+
+            let tableHtml = `
+                <table class="channel-preview-table">
+                    <thead>
+                        <tr>
+                            <th>Channel ID</th>
+                            <th>Display Name</th>
+                            <th>Mapped To</th>
+                            <th class="text-center">Programs</th>
+                            <th>Sources</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            for (const ch of channels) {
+                const rowClass = ch.isMapped ? 'channel-preview-row-mapped' : '';
+                const mappedClass = ch.isMapped ? 'mapped-cell' : 'unmapped-cell';
+                const channelId = String(ch.id || '').trim();
+                const previewSearch = [
+                    ch.id,
+                    ch.displayName,
+                    ch.mappedName,
+                    ...(ch.sourceList || ch.sources || []),
+                    ...(ch.alternateDisplayNames || [])
+                ].filter(Boolean).join(' ').toLowerCase();
+                const isBlankId = !channelId;
+                const isDuplicate = !!channelId && (idCounts.get(channelId) || 0) > 1;
+                tableHtml += `
+                    <tr class="${rowClass}" data-preview-row="true" data-preview-search="${escapeHtml(previewSearch)}" data-preview-mapped="${ch.isMapped ? 'true' : 'false'}" data-preview-blank-id="${isBlankId ? 'true' : 'false'}" data-preview-duplicate="${isDuplicate ? 'true' : 'false'}">
+                        <td class="channel-preview-id-cell">${escapeHtml(ch.id)}</td>
+                        <td>
+                            <div>${escapeHtml(ch.displayName)}</div>
+                            ${(ch.alternateDisplayNames?.length > 0)
+                                ? `<div class="channel-preview-alt-names">Also seen as: ${escapeHtml(ch.alternateDisplayNames.join(', '))}</div>`
+                                : ''}
+                        </td>
+                        <td class="${mappedClass}">${escapeHtml(ch.mappedName || '—')}</td>
+                        <td class="channel-preview-program-cell">${ch.programCount}</td>
+                        <td class="channel-preview-source-cell">
+                            <div>${ch.sourceCount || (ch.sourceList?.length || 0)} source(s)</div>
+                            ${((ch.sourceList?.length || ch.sources?.length) > 0)
+                                ? `<div class="channel-preview-source-list">${escapeHtml((ch.sourceList || ch.sources).join(', '))}</div>`
+                                : '<div class="channel-preview-source-list">—</div>'}
+                        </td>
+                    </tr>
+                `;
+            }
+
+            if (channels.length === 0) {
+                tableHtml += `
+                    <tr>
+                        <td colspan="5" class="channel-preview-empty-cell">
+                            No channels were detected for this source.
+                        </td>
+                    </tr>
+                `;
+            }
+
+            tableHtml += '</tbody></table>';
+            return tableHtml;
+        }
+
+        // Preview detected channels from configured sources
         async function previewChannels() {
             const urlsText = document.getElementById('epg-content').value;
             const urls = urlsText.split('\n').map(u => u.trim()).filter(u => u.length > 0);
 
             if (urls.length === 0) {
-                alert('Please enter at least one EPG URL');
+                showToast('Please enter at least one EPG URL.', 'warning');
                 return;
             }
 
-            // Use first URL for preview
-            const url = urls[0];
+            if (!beginAction('preview-channels', 'preview-channels-btn', 'Previewing...')) {
+                showToast('Channel preview is already loading.', 'info');
+                return;
+            }
 
-            showStatus('channel-status', 'Previewing channels...', 'info');
+            showStatus('channel-status', `Previewing channels from ${urls.length} source(s)...`, 'info');
 
             try {
-                const response = await fetch('/api/config/preview-channels', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url, useCurrentMap: true }),
-                    credentials: 'include'
-                });
+                const previewResults = [];
 
-                const result = await response.json();
+                for (const url of urls) {
+                    const response = await fetch('/api/config/preview-channels', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url, useCurrentMap: true }),
+                        credentials: 'include'
+                    });
 
-                if (!result.success) {
-                    showStatus('channel-status', `Error: ${result.message}`, 'error');
+                    const result = await response.json();
+                    previewResults.push({ url, ...result });
+                }
+
+                const summary = document.getElementById('channelPreviewSummary');
+                const content = document.getElementById('channelPreviewContent');
+                document.getElementById('channel-preview-search').value = '';
+                document.getElementById('channel-preview-filter').value = 'all';
+
+                const successfulPreviews = previewResults.filter(r => r.success);
+                if (successfulPreviews.length === 0) {
+                    const failedMessages = previewResults.map(r => `${r.url}: ${r.message || 'Unknown error'}`).join('\n');
+                    showStatus('channel-status', `Error previewing channels:\n${failedMessages}`, 'error');
+                    showToast('No channel previews completed successfully.', 'error');
                     return;
                 }
 
-                let message = `<strong>${result.message}</strong><br>`;
-                message += `<table style="width:100%; border-collapse: collapse; margin-top: 12px;">`;
-                message += `<tr style="border-bottom: 1px solid #666;">`;
-                message += `<th style="text-align:left; padding: 8px;">Channel ID</th>`;
-                message += `<th style="text-align:left; padding: 8px;">Display Name</th>`;
-                message += `<th style="text-align:left; padding: 8px;">Mapped To</th>`;
-                message += `<th style="text-align:center; padding: 8px;">Programs</th></tr>`;
+                const totalDetected = successfulPreviews.reduce((sum, r) => sum + (r.totalChannels || 0), 0);
+                const totalMapped = successfulPreviews.reduce((sum, r) => sum + (r.mappedChannels || 0), 0);
+                const totalUnmapped = successfulPreviews.reduce((sum, r) => sum + (r.unmappedChannels || 0), 0);
+                const aggregatedChannels = aggregatePreviewChannels(previewResults);
+                const aggregatedMapped = aggregatedChannels.filter(channel => channel.isMapped).length;
+                const aggregatedUnmapped = aggregatedChannels.filter(channel => !channel.isMapped).length;
 
-                for (const ch of result.detectedChannels.slice(0, 20)) {
-                    const mappedStyle = ch.isMapped ? 'color: #90ee90;' : 'color: #ffa500;';
-                    message += `<tr style="border-bottom: 1px solid #444;">`;
-                    message += `<td style="padding: 6px; font-family: monospace; font-size: 11px;">${ch.id}</td>`;
-                    message += `<td style="padding: 6px;">${ch.displayName}</td>`;
-                    message += `<td style="padding: 6px; ${mappedStyle}">${ch.mappedName || '—'}</td>`;
-                    message += `<td style="padding: 6px; text-align: center; color: #aaa;">${ch.programCount}</td></tr>`;
+                summary.innerHTML = `
+                    <strong>Previewed ${successfulPreviews.length} of ${previewResults.length} source(s)</strong>
+                    <span class="channel-preview-summary-stat">Detected: ${totalDetected}</span>
+                    <span class="channel-preview-summary-stat channel-preview-summary-mapped">Mapped: ${totalMapped}</span>
+                    <span class="channel-preview-summary-stat channel-preview-summary-unmapped">Unmapped: ${totalUnmapped}</span>
+                    <div class="channel-preview-summary-detail">Combined feed view: ${aggregatedChannels.length} unique channel id(s), ${aggregatedMapped} mapped, ${aggregatedUnmapped} unmapped.</div>
+                `;
+
+                let modalHtml = '';
+                modalHtml += `
+                    <section class="channel-preview-section channel-preview-combined-section">
+                        <div class="channel-preview-section-title">Combined Channel View</div>
+                        <div class="channel-preview-section-description">This aggregates matching channel ids across all previewed sources so you can see how the full guide build will behave.</div>
+                        ${renderChannelPreviewTable(aggregatedChannels)}
+                    </section>
+                `;
+
+                for (const result of previewResults) {
+                    const sectionClass = result.success ? 'channel-preview-source-ready' : 'channel-preview-source-error';
+                    const badgeClass = result.success ? 'channel-preview-badge-ready' : 'channel-preview-badge-error';
+                    const badgeText = result.success ? 'READY' : 'ERROR';
+
+                    modalHtml += `
+                        <section class="channel-preview-section channel-preview-source-section ${sectionClass}">
+                            <div class="channel-preview-source-header">
+                                <div class="channel-preview-source-meta">
+                                    <div class="channel-preview-source-label">Source</div>
+                                    <div class="channel-preview-source-url">${escapeHtml(result.url)}</div>
+                                </div>
+                                <span class="channel-preview-badge ${badgeClass}">
+                                    ${badgeText}
+                                </span>
+                            </div>
+                            <div class="channel-preview-source-message">
+                                ${escapeHtml(result.message || 'No message')}
+                            </div>
+                    `;
+
+                    if (result.success) {
+                        modalHtml += renderChannelPreviewTable(result.detectedChannels || []);
+                    } else {
+                        modalHtml += `
+                            <div class="channel-preview-error-panel">
+                                Preview failed for this source.
+                            </div>
+                        `;
+                    }
+
+                    modalHtml += `</section>`;
                 }
 
-                if (result.detectedChannels.length > 20) {
-                    message += `<tr style="border-bottom: 1px solid #444;">`;
-                    message += `<td colspan="4" style="padding: 8px; text-align: center; color: #888;">... and ${result.detectedChannels.length - 20} more</td></tr>`;
-                }
-
-                message += `</table>`;
-                showStatus('channel-status', message, 'success', true);
+                content.innerHTML = modalHtml;
+                openChannelPreviewModal();
+                filterChannelPreview();
+                showStatus('channel-status', `Channel preview loaded for ${successfulPreviews.length} source(s)`, 'success');
+                showToast(`Channel preview loaded for ${successfulPreviews.length} source(s).`, 'success');
             } catch (error) {
                 showStatus('channel-status', `Error previewing channels: ${error.message}`, 'error');
+                showToast(`Error previewing channels: ${error.message}`, 'error');
+            } finally {
+                endAction('preview-channels', 'preview-channels-btn');
+            }
+        }
+
+        function filterChannelPreview() {
+            const searchValue = document.getElementById('channel-preview-search')?.value?.trim().toLowerCase() || '';
+            const filterValue = document.getElementById('channel-preview-filter')?.value || 'all';
+            const rows = Array.from(document.querySelectorAll('[data-preview-row="true"]'));
+            let visibleCount = 0;
+
+            for (const row of rows) {
+                const matchesSearch = !searchValue || row.dataset.previewSearch?.includes(searchValue);
+                const matchesFilter =
+                    filterValue === 'all' ||
+                    (filterValue === 'mapped' && row.dataset.previewMapped === 'true') ||
+                    (filterValue === 'unmapped' && row.dataset.previewMapped === 'false') ||
+                    (filterValue === 'blank-id' && row.dataset.previewBlankId === 'true') ||
+                    (filterValue === 'duplicates' && row.dataset.previewDuplicate === 'true');
+
+                const shouldShow = matchesSearch && matchesFilter;
+                row.classList.toggle('hidden', !shouldShow);
+                if (shouldShow) visibleCount++;
+            }
+
+            document.querySelectorAll('.channel-preview-section').forEach(section => {
+                const sectionRows = Array.from(section.querySelectorAll('[data-preview-row="true"]'));
+                if (sectionRows.length === 0) return;
+
+                const hasVisibleRows = sectionRows.some(row => !row.classList.contains('hidden'));
+                section.classList.toggle('channel-preview-section-filtered-empty', !hasVisibleRows);
+            });
+
+            const summary = document.getElementById('channelPreviewSummary');
+            if (summary) {
+                const existingFilterSummary = summary.querySelector('.channel-preview-filter-summary');
+                existingFilterSummary?.remove();
+
+                const filterSummary = document.createElement('div');
+                filterSummary.className = 'channel-preview-filter-summary';
+                filterSummary.textContent = `Showing ${visibleCount} of ${rows.length} preview row(s)`;
+                summary.appendChild(filterSummary);
             }
         }
 
@@ -1348,6 +2019,8 @@
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async function() {
+            initializeSectionNavigation();
+
             // Check authentication first
             const isAuthenticated = await checkAuthentication();
             if (!isAuthenticated) return;
@@ -1358,6 +2031,14 @@
             await loadCronLogs();
             await loadRebuildHistory();
         });
+
+        // Auto-refresh health status every 10 seconds for quick feedback
+        setInterval(() => {
+            fetch('/health', { credentials: 'include' })
+                .then(r => r.json())
+                .then(data => updateHealthPanel(data))
+                .catch(error => console.error('Error refreshing health:', error));
+        }, 10000);
 
         // Auto-refresh status and cron logs every 1 minute
         setInterval(() => {

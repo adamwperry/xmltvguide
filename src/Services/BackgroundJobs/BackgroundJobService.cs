@@ -126,4 +126,9 @@ public class BackgroundJobService : IBackgroundJobService
             _currentJobCancellation.Cancel();
         }
     }
+
+    public void ClearHistory()
+    {
+        _buildJobLogger.ClearLogs();
+    }
 }

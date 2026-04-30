@@ -58,4 +58,5 @@ public class PreviewedChannel
     public string? MappedName { get; set; }
     public bool IsMapped { get; set; }
     public int ProgramCount { get; set; }
+    public List<string> Sources { get; set; } = new();
 }

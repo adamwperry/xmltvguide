@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Xml.Linq;
 using xmlTVGuide.Services.ChannelMap;
 using xmlTVGuide.Services.XMXTVBuilder.Parsers;
 using xmlTVGuide.Utilities;
@@ -198,8 +199,8 @@ public class ValidationService : IValidationService
                 return result;
             }
 
-            // Extract channels
-            var channels = ExtractChannels(jsonObject, channelMap);
+            // Reuse the real parser output so preview matches actual generation behavior.
+            var channels = ExtractChannelsFromParsedXml(matchingParser, jsonObject, channelMap, url);
             result.DetectedChannels = channels;
             result.TotalChannels = channels.Count;
             result.MappedChannels = channels.Count(c => c.IsMapped);
@@ -283,46 +284,40 @@ public class ValidationService : IValidationService
         return url;
     }
 
-    private List<PreviewedChannel> ExtractChannels(JsonObject epgData, List<Models.ChannelMapDto>? channelMap)
+    private List<PreviewedChannel> ExtractChannelsFromParsedXml(IGuideParser parser, JsonObject epgData, List<Models.ChannelMapDto>? channelMap, string url)
     {
         var channels = new List<PreviewedChannel>();
 
         try
         {
-            // Try to extract channels from common structures
-            if (epgData.TryGetPropertyValue("channels", out var channelsNode) && channelsNode is JsonArray channelArray)
+            var tv = new XElement("tv");
+            var parsedTv = parser.ProcessChannels(tv, epgData, channelMap);
+
+            var programmeCountsByChannel = parsedTv
+                .Elements("programme")
+                .Select(programme => programme.Attribute("channel")?.Value)
+                .Where(channelId => !string.IsNullOrWhiteSpace(channelId))
+                .GroupBy(channelId => channelId!)
+                .ToDictionary(group => group.Key, group => group.Count());
+
+            foreach (var channelElement in parsedTv.Elements("channel"))
             {
-                foreach (var ch in channelArray)
+                var id = channelElement.Attribute("id")?.Value ?? "";
+                if (string.IsNullOrWhiteSpace(id))
+                    continue;
+
+                var displayName = channelElement.Element("display-name")?.Value ?? id;
+                var mappedName = channelMap?.FirstOrDefault(m => m.ChannelId == id)?.Name;
+
+                channels.Add(new PreviewedChannel
                 {
-                    if (ch is JsonObject channelObj)
-                    {
-                        var id = channelObj["channelId"]?.GetValue<string>() ??
-                                channelObj["channel_id"]?.GetValue<string>() ??
-                                channelObj["id"]?.GetValue<string>() ?? "";
-
-                        var displayName = channelObj["callSign"]?.GetValue<string>() ??
-                                        channelObj["call_sign"]?.GetValue<string>() ??
-                                        channelObj["name"]?.GetValue<string>() ?? id;
-
-                        var programCount = 0;
-                        if (channelObj.TryGetPropertyValue("events", out var eventsNode) && eventsNode is JsonArray eventsArray)
-                            programCount = eventsArray.Count;
-                        else if (channelObj.TryGetPropertyValue("programs", out var programsNode) && programsNode is JsonArray programsArray)
-                            programCount = programsArray.Count;
-
-                        var mappedName = channelMap?.FirstOrDefault(m =>
-                            m.ChannelId == id)?.Name;
-
-                        channels.Add(new PreviewedChannel
-                        {
-                            Id = id,
-                            DisplayName = displayName,
-                            MappedName = mappedName,
-                            IsMapped = !string.IsNullOrEmpty(mappedName),
-                            ProgramCount = programCount
-                        });
-                    }
-                }
+                    Id = id,
+                    DisplayName = displayName,
+                    MappedName = mappedName,
+                    IsMapped = !string.IsNullOrWhiteSpace(mappedName),
+                    ProgramCount = programmeCountsByChannel.GetValueOrDefault(id, 0),
+                    Sources = new List<string> { url }
+                });
             }
         }
         catch (Exception ex)

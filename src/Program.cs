@@ -1,7 +1,6 @@
 using xmlTVGuide.Services;
 using xmlTVGuide.Services.ArgumentParser;
 using xmlTVGuide.Services.FileServices;
-using System.Xml.Linq;
 using xmlTVGuide.Services.ChannelMap;
 using xmlTVGuide.Services.XMXTVBuilder.Parsers;
 
@@ -34,7 +33,7 @@ class Program
     {
         // Determine port based on environment
         var port = Environment.GetEnvironmentVariable("PORT") ?? GetDefaultPort();
-        
+
         // Determine wwwroot path based on environment
         var isDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
                        Directory.Exists("/app");
@@ -56,7 +55,7 @@ class Program
         // Check if running in Docker
         var isDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
                        Directory.Exists("/app");
-        
+
         return isDocker ? "80" : "8585";
     }
 
@@ -91,6 +90,8 @@ class Program
         serviceCollection.AddSingleton<IXmlTVBuilder, XmlTVBuilder>();
         serviceCollection.AddSingleton<IFileService, XMLFileService>();
         serviceCollection.AddSingleton<IChannelMapLoader, ChannelMapLoader>();
+        serviceCollection.AddSingleton<IEpgGenerationStatusTracker, InMemoryEpgGenerationStatusTracker>();
+        serviceCollection.AddSingleton<IEpgGenerationService, EpgGenerationService>();
         serviceCollection.AddTransient<IGuideParser, GuideOneParser>();
         serviceCollection.AddTransient<IGuideParser, GuideTwoParser>();
         serviceCollection.AddTransient<IGuideParser, GuideThreeParser>();
@@ -115,10 +116,6 @@ class Program
 
         // Create final service provider with all services
         var serviceProvider = serviceCollection.BuildServiceProvider();
-        serviceCollection.AddSingleton<IEpgGenerationService, EpgGenerationService>();
-
-        // Build again with EpgGenerationService registered
-        serviceProvider = serviceCollection.BuildServiceProvider();
         var generationService = serviceProvider.GetService<IEpgGenerationService>();
 
         if (generationService == null)

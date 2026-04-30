@@ -73,6 +73,7 @@ public class Startup
         services.AddSingleton<ICronLogger, CronLogger>();
         services.AddSingleton<IBuildJobLogger, BuildJobLogger>();
         services.AddSingleton<IAuthService, AuthService>();
+        services.AddSingleton<IEpgGenerationStatusTracker, InMemoryEpgGenerationStatusTracker>();
         services.AddSingleton<IEpgGenerationService, EpgGenerationService>();
         services.AddSingleton<IBackgroundJobService, BackgroundJobService>();
         services.AddSingleton<IValidationService, ValidationService>();

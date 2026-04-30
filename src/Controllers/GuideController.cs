@@ -128,4 +128,11 @@ public class GuideController : ControllerBase
         _backgroundJobService.CancelCurrent();
         return Ok(new { message = "Cancellation request sent" });
     }
+
+    [HttpDelete("api/rebuild/history")]
+    public IActionResult ClearRebuildHistory()
+    {
+        _backgroundJobService.ClearHistory();
+        return Ok(new { message = "Rebuild job history cleared" });
+    }
 }

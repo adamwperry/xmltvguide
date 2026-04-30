@@ -33,6 +33,20 @@ public abstract class DataFetcherBase : IDataFetcher
     public abstract Task<List<string>> FetchDataAsync(List<string> urls);
 
     /// <summary>
+    /// Fetches data from a single URL with detailed error reporting.
+    /// </summary>
+    /// <param name="url">The URL to fetch data from.</param>
+    /// <returns>A FetchResult containing data and detailed error info if fetch failed.</returns>
+    public abstract Task<FetchResult> FetchDataWithResultAsync(string url);
+
+    /// <summary>
+    /// Fetches data from multiple URLs with detailed error reporting for each.
+    /// </summary>
+    /// <param name="urls">List of URLs to fetch data from.</param>
+    /// <returns>A list of FetchResult objects, one per URL, with data and detailed error info.</returns>
+    public abstract Task<List<FetchResult>> FetchDataWithResultsAsync(List<string> urls);
+
+    /// <summary>
     /// Initializes an HttpClient with default headers.
     /// The User-Agent header is set to the specified user agent.
     /// The Accept, Accept-Language, and Connection headers are also set to common values.

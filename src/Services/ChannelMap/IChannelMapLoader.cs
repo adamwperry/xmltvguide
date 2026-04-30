@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using xmlTVGuide.Models;
 
 namespace xmlTVGuide.Services.ChannelMap;
@@ -9,4 +8,5 @@ namespace xmlTVGuide.Services.ChannelMap;
 public interface IChannelMapLoader
 {
     List<ChannelMapDto> LoadChannelMap(string filePath);
+    ChannelMapAnalysis AnalyzeChannelMapContent(string content);
 }

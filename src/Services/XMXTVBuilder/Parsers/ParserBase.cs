@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using xmlTVGuide.Models;

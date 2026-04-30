@@ -26,16 +26,80 @@ public class ChannelMapLoader : IChannelMapLoader
             throw new FileNotFoundException($"The file '{filePath}' does not exist.");
 
         var content = File.ReadAllText(filePath);
+        return AnalyzeChannelMapContent(content).ValidChannels;
+    }
+
+    public ChannelMapAnalysis AnalyzeChannelMapContent(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            throw new InvalidOperationException("Invalid JSON structure.");
+
         var root = JsonNode.Parse(content)?.AsObject() ?? throw new InvalidOperationException("Invalid JSON structure.");
         var array = root[ChannelsKey]?.AsArray() ?? throw new InvalidOperationException($"Missing '{ChannelsKey}' in channel map.");
 
-        return array
-            .Select(n => new ChannelMapDto
+        var analysis = new ChannelMapAnalysis
+        {
+            TotalEntries = array.Count
+        };
+
+        var entries = array
+            .Select((node, index) => new
             {
-                Name = n?["channel"]?["name"]?.ToString(),
-                ChannelId = n?["channel"]?["channelId"]?.ToString()
+                EntryNumber = index + 1,
+                Name = node?["channel"]?["name"]?.ToString()?.Trim(),
+                ChannelId = node?["channel"]?["channelId"]?.ToString()?.Trim()
             })
-            .Where(dto => !string.IsNullOrWhiteSpace(dto.Name) && !string.IsNullOrWhiteSpace(dto.ChannelId))
             .ToList();
+
+        foreach (var entry in entries)
+        {
+            if (string.IsNullOrWhiteSpace(entry.ChannelId))
+            {
+                analysis.BlankChannelIdEntries.Add(new ChannelMapEntryIssue
+                {
+                    EntryNumber = entry.EntryNumber,
+                    Name = entry.Name,
+                    ChannelId = entry.ChannelId
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(entry.Name))
+            {
+                analysis.BlankNameEntries.Add(new ChannelMapEntryIssue
+                {
+                    EntryNumber = entry.EntryNumber,
+                    Name = entry.Name,
+                    ChannelId = entry.ChannelId
+                });
+            }
+
+            if (!string.IsNullOrWhiteSpace(entry.Name) && !string.IsNullOrWhiteSpace(entry.ChannelId))
+            {
+                analysis.ValidChannels.Add(new ChannelMapDto
+                {
+                    Name = entry.Name,
+                    ChannelId = entry.ChannelId
+                });
+            }
+        }
+
+        analysis.ValidEntries = analysis.ValidChannels.Count;
+        analysis.BlankChannelIdCount = analysis.BlankChannelIdEntries.Count;
+        analysis.BlankNameCount = analysis.BlankNameEntries.Count;
+        analysis.DuplicateChannelIdGroups = entries
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.ChannelId))
+            .GroupBy(entry => entry.ChannelId!, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .Select(group => new DuplicateChannelMapGroup
+            {
+                ChannelId = group.Key,
+                EntryNumbers = group.Select(entry => entry.EntryNumber).ToList(),
+                Names = group.Select(entry => entry.Name ?? "(blank)").Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+            })
+            .OrderBy(group => group.ChannelId)
+            .ToList();
+        analysis.DuplicateChannelIdCount = analysis.DuplicateChannelIdGroups.Count;
+
+        return analysis;
     }
 }

@@ -1,9 +1,6 @@
 namespace xmlTVGuide.Services;
 
 using xmlTVGuide.Services.ArgumentParser;
-using xmlTVGuide.Services.ChannelMap;
-using xmlTVGuide.Services.XMXTVBuilder;
-using xmlTVGuide.Services.XMXTVBuilder.Parsers;
 
 public interface IEpgGenerationService
 {
@@ -15,21 +12,33 @@ public class EpgGenerationResult
     public bool Success { get; set; }
     public string Message { get; set; } = "";
     public Exception? Exception { get; set; }
+    public List<string> ErrorDetails { get; set; } = new();
+    public List<string> WarningDetails { get; set; } = new();
 }
 
 public class EpgGenerationService : IEpgGenerationService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<EpgGenerationService> _logger;
+    private readonly IEpgGenerationStatusTracker _statusTracker;
 
-    public EpgGenerationService(IServiceProvider serviceProvider, ILogger<EpgGenerationService> logger)
+    public EpgGenerationService(IServiceProvider serviceProvider, ILogger<EpgGenerationService> logger, IEpgGenerationStatusTracker statusTracker)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
+        _statusTracker = statusTracker;
     }
 
     public async Task<EpgGenerationResult> GenerateAsync(string[] args)
     {
+        var startTime = DateTime.UtcNow;
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var status = new EpgGenerationStatus
+        {
+            HasRecordedRun = true,
+            LastRunAt = startTime
+        };
+
         try
         {
             _logger.LogInformation("Starting XMLTV Guide Generator...");
@@ -39,49 +48,196 @@ public class EpgGenerationService : IEpgGenerationService
 
             var argumentParser = _serviceProvider.GetService<IAppArguments>();
             if (argumentParser == null)
-                return new EpgGenerationResult { Success = false, Message = "Failed to resolve IAppArguments service." };
+            {
+                stopwatch.Stop();
+                status.LastRunDurationMs = stopwatch.ElapsedMilliseconds;
+                status.LastRunSuccess = false;
+                status.LastRunMessage = "Failed to resolve IAppArguments service.";
+                status.HealthStatus = "unhealthy";
+                status.ErrorDetails.Add(status.LastRunMessage);
+                _statusTracker.UpdateStatus(status);
+                return new EpgGenerationResult { Success = false, Message = status.LastRunMessage };
+            }
 
             var arguments = argumentParser.ParseArguments(args);
 
             if (arguments.HelpSet)
+            {
+                stopwatch.Stop();
+                status.LastRunDurationMs = stopwatch.ElapsedMilliseconds;
+                status.LastRunSuccess = true;
+                status.LastRunMessage = arguments.HelpText;
+                status.HealthStatus = "unknown";
+                _statusTracker.UpdateStatus(status);
                 return new EpgGenerationResult { Success = true, Message = arguments.HelpText };
+            }
 
             if (arguments.Fake)
                 arguments.Urls = arguments.Urls.Count == 0
                     ? new List<string> { Path.Combine(Directory.GetCurrentDirectory(), "src", "TestData", "tvguide.json") }
                     : arguments.Urls;
             else if (arguments.Urls.Count == 0)
-                return new EpgGenerationResult { Success = false, Message = "No URLs provided for EPG generation." };
+            {
+                stopwatch.Stop();
+                status.LastRunDurationMs = stopwatch.ElapsedMilliseconds;
+                status.LastRunSuccess = false;
+                status.LastRunMessage = "No URLs provided for EPG generation.";
+                status.HealthStatus = "unhealthy";
+                status.ErrorDetails.Add(status.LastRunMessage);
+                _statusTracker.UpdateStatus(status);
+                return new EpgGenerationResult { Success = false, Message = status.LastRunMessage };
+            }
 
             var dataFetcher = _serviceProvider.GetService<IDataFetcher>();
             if (dataFetcher == null)
-                return new EpgGenerationResult { Success = false, Message = "Failed to resolve IDataFetcher service." };
+            {
+                stopwatch.Stop();
+                status.LastRunDurationMs = stopwatch.ElapsedMilliseconds;
+                status.LastRunSuccess = false;
+                status.LastRunMessage = "Failed to resolve IDataFetcher service.";
+                status.HealthStatus = "unhealthy";
+                status.ErrorDetails.Add(status.LastRunMessage);
+                _statusTracker.UpdateStatus(status);
+                return new EpgGenerationResult { Success = false, Message = status.LastRunMessage };
+            }
 
             var xmlTVBuilder = _serviceProvider.GetService<IXmlTVBuilder>();
             if (xmlTVBuilder == null)
-                return new EpgGenerationResult { Success = false, Message = "Failed to resolve IXmlTVBuilder service." };
-
-            var data = await dataFetcher.FetchDataAsync(arguments.Urls);
-            if (data == null)
-                return new EpgGenerationResult { Success = false, Message = "Failed to fetch data." };
+            {
+                stopwatch.Stop();
+                status.LastRunDurationMs = stopwatch.ElapsedMilliseconds;
+                status.LastRunSuccess = false;
+                status.LastRunMessage = "Failed to resolve IXmlTVBuilder service.";
+                status.HealthStatus = "unhealthy";
+                status.ErrorDetails.Add(status.LastRunMessage);
+                _statusTracker.UpdateStatus(status);
+                return new EpgGenerationResult { Success = false, Message = status.LastRunMessage };
+            }
 
             if (string.IsNullOrEmpty(arguments.ChannelMapPath) || string.IsNullOrEmpty(arguments.OutputPath))
-                return new EpgGenerationResult { Success = false, Message = "Channel map path and output path are required." };
+            {
+                stopwatch.Stop();
+                status.LastRunDurationMs = stopwatch.ElapsedMilliseconds;
+                status.LastRunSuccess = false;
+                status.LastRunMessage = "Channel map path and output path are required.";
+                status.HealthStatus = "unhealthy";
+                status.ErrorDetails.Add(status.LastRunMessage);
+                _statusTracker.UpdateStatus(status);
+                return new EpgGenerationResult { Success = false, Message = status.LastRunMessage };
+            }
 
-            xmlTVBuilder.BuildXmlTV(data, arguments.ChannelMapPath, arguments.OutputPath);
+            // Fetch data with detailed error tracking per source
+            var fetchResults = await dataFetcher.FetchDataWithResultsAsync(arguments.Urls);
 
-            var successMessage = "XML guide.xml has been generated successfully.";
+            // Track successes and failures
+            var successfulData = new List<string>();
+            var result = new EpgGenerationResult();
+            status.TotalSources = fetchResults.Count;
+
+            foreach (var fetchResult in fetchResults)
+            {
+                var sourceStatus = new SourceFetchStatus
+                {
+                    Url = fetchResult.Url,
+                    Success = fetchResult.Success,
+                    ErrorMessage = fetchResult.ErrorMessage,
+                    HttpStatusCode = fetchResult.StatusCode,
+                    ResponseTimeMs = fetchResult.ResponseTimeMs,
+                    ResponseSizeBytes = fetchResult.ResponseSize,
+                    FetchedAt = fetchResult.FetchedAt
+                };
+                status.SourceResults.Add(sourceStatus);
+
+                if (fetchResult.Success && !string.IsNullOrEmpty(fetchResult.Data))
+                {
+                    successfulData.Add(fetchResult.Data);
+                    status.SuccessfulSources++;
+                    _logger.LogInformation($"✓ Successfully fetched from {fetchResult.Url} ({fetchResult.ResponseSize} bytes, {fetchResult.ResponseTimeMs}ms)");
+                }
+                else
+                {
+                    var errorMsg = $"✗ Failed to fetch from {fetchResult.Url}: {fetchResult.ErrorMessage} ({fetchResult.ResponseTimeMs}ms)";
+                    _logger.LogWarning(errorMsg);
+                    result.WarningDetails.Add(errorMsg);
+                    status.WarningDetails.Add(errorMsg);
+                }
+            }
+
+            // If no sources succeeded, return error
+            if (successfulData.Count == 0)
+            {
+                stopwatch.Stop();
+                status.LastRunDurationMs = stopwatch.ElapsedMilliseconds;
+                var errorSummary = $"All {fetchResults.Count} EPG source(s) failed to fetch. No data available for guide generation.";
+                _logger.LogError(errorSummary);
+                result.Success = false;
+                result.Message = errorSummary;
+                result.ErrorDetails.Add(errorSummary);
+                status.LastRunSuccess = false;
+                status.LastRunMessage = errorSummary;
+                status.HealthStatus = "unhealthy";
+
+                foreach (var failedResult in fetchResults.Where(r => !r.Success))
+                {
+                    var detail = $"  • {failedResult.Url}: {failedResult.ErrorMessage}";
+                    result.ErrorDetails.Add(detail);
+                    status.ErrorDetails.Add(detail);
+                }
+
+                _statusTracker.UpdateStatus(status);
+                return result;
+            }
+
+            // If some sources failed but others succeeded, log warnings
+            if (successfulData.Count < fetchResults.Count)
+            {
+                var partialFailureMsg = $"Partial EPG fetch: {successfulData.Count}/{fetchResults.Count} sources succeeded. Continuing with available data.";
+                _logger.LogWarning(partialFailureMsg);
+                result.WarningDetails.Add(partialFailureMsg);
+                status.WarningDetails.Add(partialFailureMsg);
+            }
+
+            // Build XML TV from successful data
+            xmlTVBuilder.BuildXmlTV(successfulData, arguments.ChannelMapPath, arguments.OutputPath);
+
+            // Update status with file info
+            var outputPath = arguments.OutputPath;
+            if (File.Exists(outputPath))
+            {
+                var fileInfo = new FileInfo(outputPath);
+                status.GuideGeneratedAt = fileInfo.LastWriteTimeUtc;
+                status.GuideFileSizeBytes = fileInfo.Length;
+            }
+
+            stopwatch.Stop();
+            status.LastRunDurationMs = stopwatch.ElapsedMilliseconds;
+            var successMessage = $"XML guide.xml has been generated successfully ({successfulData.Count} source(s) used).";
             _logger.LogInformation(successMessage);
-            return new EpgGenerationResult { Success = true, Message = successMessage };
+            result.Success = true;
+            result.Message = successMessage;
+            status.LastRunSuccess = true;
+            status.LastRunMessage = successMessage;
+            status.HealthStatus = successfulData.Count == fetchResults.Count ? "healthy" : "degraded";
+
+            _statusTracker.UpdateStatus(status);
+            return result;
         }
         catch (Exception ex)
         {
+            stopwatch.Stop();
+            status.LastRunDurationMs = stopwatch.ElapsedMilliseconds;
             _logger.LogError(ex, "An error occurred during EPG generation");
+            status.LastRunSuccess = false;
+            status.LastRunMessage = $"An error occurred: {ex.Message}";
+            status.HealthStatus = "unhealthy";
+            status.ErrorDetails.Add(ex.ToString());
+            _statusTracker.UpdateStatus(status);
             return new EpgGenerationResult
             {
                 Success = false,
-                Message = $"An error occurred: {ex.Message}",
-                Exception = ex
+                Message = status.LastRunMessage,
+                Exception = ex,
+                ErrorDetails = new() { ex.ToString() }
             };
         }
     }
