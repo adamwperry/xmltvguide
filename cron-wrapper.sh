@@ -30,9 +30,15 @@ log_to_api() {
 EOF
 )
     
+    local token_header=()
+    if [ -n "$CRON_LOG_TOKEN" ]; then
+        token_header=(-H "X-Cron-Log-Token: $CRON_LOG_TOKEN")
+    fi
+
     # Try to log to API (don't let this fail the script)
     curl -s -X POST "$LOG_URL" \
         -H "Content-Type: application/json" \
+        "${token_header[@]}" \
         -d "$json_payload" > /dev/null 2>&1 || true
 }
 

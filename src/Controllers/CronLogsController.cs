@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using System.Net;
 using xmlTVGuide.Models;
 using xmlTVGuide.Services.CronLogger;
 using IOFile = System.IO.File;
@@ -143,10 +144,14 @@ public class CronLogsController : ControllerBase
     }
 
     [HttpPost("log")]
+    [AllowAnonymous]
     public IActionResult LogCronRun([FromBody] CronLogRequest request)
     {
         try
         {
+            if (!IsAuthorizedCronLogRequest())
+                return Unauthorized(new { message = "Cron log endpoint is only available to local cron jobs." });
+
             if (string.IsNullOrEmpty(request.Message))
                 return BadRequest(new { message = "Message is required" });
 
@@ -163,5 +168,18 @@ public class CronLogsController : ControllerBase
         {
             return StatusCode(500, new { message = "Error logging cron run", error = ex.Message });
         }
+    }
+
+    private bool IsAuthorizedCronLogRequest()
+    {
+        var token = Environment.GetEnvironmentVariable("CRON_LOG_TOKEN");
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            return Request.Headers.TryGetValue("X-Cron-Log-Token", out var providedToken) &&
+                string.Equals(providedToken.ToString(), token, StringComparison.Ordinal);
+        }
+
+        var remoteIp = HttpContext.Connection.RemoteIpAddress;
+        return remoteIp is not null && IPAddress.IsLoopback(remoteIp);
     }
 }
