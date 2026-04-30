@@ -1,10 +1,19 @@
 services:
   xmltvguide:
+    build: .
     image: xmltvguide:latest
     container_name: xmltvguide
     ports:
       - "8586:80"
     restart: unless-stopped
     environment:
+      - RUN_AS_WEB=true
       - EPG_URL_FILES=/app/epg_urls.txt # this or EPG_URL must be used to set the EPG source(s)
       - CHANNEL_MAP_PATH=/app/ChannelMap.json
+      - OUTPUT_PATH=/app/output/guide.xml
+      - CRONTAB_PATH=/etc/cron.d/epg-cron
+    volumes:
+      - ./epg_urls.txt:/app/epg_urls.txt
+      - ./ChannelMap.json:/app/ChannelMap.json
+      - ./output:/app/output
+      - ./logs:/app/logs

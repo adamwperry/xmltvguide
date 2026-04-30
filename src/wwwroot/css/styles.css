@@ -985,6 +985,41 @@ a:focus-visible {
         width: auto;
     }
 
+    .modal {
+        padding: 12px;
+    }
+
+    .modal-content {
+        width: 100%;
+        min-width: 0;
+        max-width: calc(100vw - 24px);
+        max-height: calc(100vh - 24px);
+    }
+
+    .guide-preview-modal-content,
+    .channel-preview-modal-content {
+        width: calc(100vw - 24px);
+        height: calc(100vh - 24px);
+        max-width: calc(100vw - 24px);
+        max-height: calc(100vh - 24px);
+    }
+
+    .preview-modal-header,
+    .modal-body,
+    .modal-footer {
+        padding: 16px;
+    }
+
+    .guide-preview-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .guide-preview-search-input {
+        max-width: none;
+        width: 100%;
+    }
+
     .channel-map-tools {
         grid-template-columns: 1fr;
         flex-basis: 100%;
@@ -1768,6 +1803,7 @@ a img.btn-icon {
     left: 0;
     width: 100%;
     height: 100%;
+    padding: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1790,12 +1826,16 @@ a img.btn-icon {
 
 .modal-content {
     position: relative;
+    display: flex;
+    flex-direction: column;
     background: linear-gradient(135deg, #1e1b2e 0%, #2d1b69 100%);
     border: 1px solid rgba(168, 85, 247, 0.3);
     border-radius: 12px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(168, 85, 247, 0.2);
     min-width: 400px;
     max-width: 600px;
+    max-height: calc(100vh - 40px);
+    overflow: hidden;
     animation: slideIn 0.3s ease-out;
 }
 
@@ -1847,6 +1887,9 @@ a img.btn-icon {
 }
 
 .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
     padding: 24px;
     color: #e0e0e0;
     line-height: 1.6;
@@ -1858,6 +1901,7 @@ a img.btn-icon {
 }
 
 .modal-footer {
+    flex: 0 0 auto;
     display: flex;
     justify-content: flex-end;
     gap: 12px;
@@ -1876,15 +1920,19 @@ a img.btn-icon {
 }
 
 .guide-preview-modal-content {
-    max-width: 98%;
-    max-height: 95vh;
-    min-width: 1200px;
+    width: min(96vw, 1600px);
+    height: min(92vh, 980px);
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 40px);
+    min-width: 0;
 }
 
 .channel-preview-modal-content {
-    max-width: 92%;
-    max-height: 90vh;
-    min-width: 980px;
+    width: min(92vw, 1180px);
+    height: min(88vh, 880px);
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 40px);
+    min-width: 0;
 }
 
 .modal-close-floating {
@@ -1895,6 +1943,7 @@ a img.btn-icon {
 }
 
 .preview-modal-header {
+    flex: 0 0 auto;
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -2016,13 +2065,13 @@ a img.btn-icon {
 .guide-preview-modal-body {
     overflow-x: auto;
     overflow-y: auto;
-    max-height: 88vh;
+    max-height: none;
 }
 
 .channel-preview-modal-body {
     overflow-x: auto;
     overflow-y: auto;
-    max-height: 78vh;
+    max-height: none;
 }
 
 .guide-preview-content {
