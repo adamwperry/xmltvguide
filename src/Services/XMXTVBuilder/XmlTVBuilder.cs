@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using xmlTVGuide.Services.FileServices;
 using xmlTVGuide.Services.ChannelMap;
@@ -21,6 +22,9 @@ public class XmlTVBuilder : IXmlTVBuilder
     private readonly IChannelMapLoader _channelMapLoader;
 
     private const string TVKey = "tv";
+    private const string ChannelKey = "channel";
+    private const string DisplayNameKey = "display-name";
+    private static readonly Regex LeadingChannelNumberRegex = new(@"^\s*\d+\s+(.+)$", RegexOptions.Compiled);
 
     private readonly IEnumerable<IGuideParser> _parsers;
 
@@ -62,7 +66,28 @@ public class XmlTVBuilder : IXmlTVBuilder
                 throw new InvalidOperationException("Failed to process channels. The resulting XML TV element is null.");
         }
 
+        CleanChannelDisplayNames(tv);
         SaveXmlToFile(tv, outputPath);
+    }
+
+    private static void CleanChannelDisplayNames(XElement tv)
+    {
+        foreach (var displayNameElement in tv.Elements(ChannelKey).Elements(DisplayNameKey))
+        {
+            var cleanedDisplayName = CleanDisplayName(displayNameElement.Value);
+            if (!string.IsNullOrWhiteSpace(cleanedDisplayName))
+                displayNameElement.Value = cleanedDisplayName;
+        }
+    }
+
+    private static string CleanDisplayName(string? displayName)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+            return string.Empty;
+
+        var trimmedDisplayName = displayName.Trim();
+        var match = LeadingChannelNumberRegex.Match(trimmedDisplayName);
+        return match.Success ? match.Groups[1].Value.Trim() : trimmedDisplayName;
     }
 
     /// <summary>
