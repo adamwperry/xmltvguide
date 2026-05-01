@@ -12,6 +12,9 @@ services:
       - CHANNEL_MAP_PATH=/app/ChannelMap.json
       - OUTPUT_PATH=/app/output/guide.xml
       - CRONTAB_PATH=/etc/cron.d/epg-cron
+      - AUTH_USERNAME=${AUTH_USERNAME:-admin}
+      - AUTH_PASSWORD=${AUTH_PASSWORD:-changeme}
+      - AUTH_EMAIL=${AUTH_EMAIL:-admin@xmltvguide.local}
     volumes:
       - ./epg_urls.txt:/app/epg_urls.txt
       - ./ChannelMap.json:/app/ChannelMap.json

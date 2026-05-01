@@ -23,6 +23,9 @@ docker build -t xmltvguide-generator .
 
 docker run --rm \
   -e RUN_AS_WEB=true \
+  -e AUTH_USERNAME=admin \
+  -e AUTH_PASSWORD=changeme \
+  -e AUTH_EMAIL=admin@xmltvguide.local \
   -e EPG_URL_FILES=/app/epg_urls.txt \
   -e CHANNEL_MAP_PATH=/app/ChannelMap.json \
   -e OUTPUT_PATH=/app/output/guide.xml \
@@ -40,6 +43,30 @@ Then open:
 - Health check: `http://localhost:8585/health`
 
 Cron is enabled in web mode and runs EPG updates every 20 minutes by default. Edit `crontab.txt` to change the schedule.
+
+### Web UI Authentication
+
+The web UI reads login credentials from environment variables first, then falls back to `appsettings.json`:
+
+- `AUTH_USERNAME`
+- `AUTH_PASSWORD`
+- `AUTH_EMAIL`
+
+For Docker Compose, `docker-compose.yml` uses shell or `.env` values when present and falls back to local defaults:
+
+```yaml
+AUTH_USERNAME=${AUTH_USERNAME:-admin}
+AUTH_PASSWORD=${AUTH_PASSWORD:-changeme}
+AUTH_EMAIL=${AUTH_EMAIL:-admin@xmltvguide.local}
+```
+
+To override without editing the compose file, create a `.env` file next to `docker-compose.yml`:
+
+```env
+AUTH_USERNAME=admin
+AUTH_PASSWORD=replace-with-a-strong-password
+AUTH_EMAIL=admin@example.com
+```
 
 ## Configuration Files
 
@@ -134,8 +161,12 @@ Runs a persistent web service with a management interface and scheduled EPG upda
 ```bash
 docker run --rm \
   -e RUN_AS_WEB=true \
+  -e AUTH_USERNAME=admin \
+  -e AUTH_PASSWORD=changeme \
+  -e AUTH_EMAIL=admin@xmltvguide.local \
   -e EPG_URL_FILES=/app/epg_urls.txt \
   -e CHANNEL_MAP_PATH=/app/ChannelMap.json \
+  -e OUTPUT_PATH=/app/output/guide.xml \
   -v $(pwd)/epg_urls.txt:/app/epg_urls.txt \
   -v $(pwd)/ChannelMap.json:/app/ChannelMap.json \
   -v $(pwd)/output:/app/output \
@@ -150,6 +181,8 @@ docker run --rm \
 > - **Health Check**: `http://localhost:8585/health`
 > - **API Endpoints**: `http://localhost:8585/api/config`, `http://localhost:8585/api/cronlogs`
 > - **Config Backup**: export/restore from the Web UI
+
+For Docker Compose deployments, set `AUTH_USERNAME`, `AUTH_PASSWORD`, and `AUTH_EMAIL` in a `.env` file or edit the values in `docker-compose.yml`. Environment variables override the defaults in `appsettings.json`.
 
 **Note:** Cron is automatically enabled and runs EPG updates every 20 minutes (configurable in `crontab.txt`).
 
