@@ -3,6 +3,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using xmlTVGuide.Controllers;
+using xmlTVGuide.Services.AppSettings;
 using xmlTVGuide.Services.ChannelMap;
 using xmlTVGuide.Services.Validation;
 using Xunit;
@@ -130,6 +131,7 @@ public class ConfigControllerTests : IDisposable
         var controller = CreateController();
         File.WriteAllText(Path.Combine(_tempDir, "epg_urls.txt"), "https://one.example.com\n");
         File.WriteAllText(Path.Combine(_tempDir, "ChannelMap.json"), "{\"channels\":[]}");
+        File.WriteAllText(Path.Combine(_tempDir, "settings.json"), "{\"channel\":{\"useChannelNamesInsteadOfNumericIds\":true}}");
 
         var result = await controller.ExportBackup();
 
@@ -140,6 +142,7 @@ public class ConfigControllerTests : IDisposable
         var json = System.Text.Encoding.UTF8.GetString(file.FileContents);
         json.Should().Contain("https://one.example.com");
         json.Should().Contain("channels");
+        json.Should().Contain("useChannelNamesInsteadOfNumericIds");
     }
 
     [Fact]
@@ -153,12 +156,75 @@ public class ConfigControllerTests : IDisposable
         var result = await controller.RestoreBackup(new ConfigBackup
         {
             EpgUrls = new ConfigBackupFile { Content = "https://restored.example.com\r\n" },
-            ChannelMap = new ConfigBackupFile { Content = "{\"channels\":[{\"channel\":{\"name\":\"ABC\",\"channelId\":\"123\"}}]}" }
+            ChannelMap = new ConfigBackupFile { Content = "{\"channels\":[{\"channel\":{\"name\":\"ABC\",\"channelId\":\"123\"}}]}" },
+            Settings = new ConfigBackupFile { Content = "{\"channel\":{\"useChannelNamesInsteadOfNumericIds\":true}}" }
         });
 
         result.Should().BeOfType<OkObjectResult>();
         File.ReadAllText(epgUrlsPath).Should().Be("https://restored.example.com\n");
         File.ReadAllText(channelMapPath).Should().Contain("\"ABC\"");
+        File.ReadAllText(Path.Combine(_tempDir, "settings.json")).Should().Contain("useChannelNamesInsteadOfNumericIds");
+    }
+
+    [Fact]
+    public async Task GetSettings_WhenFileIsMissing_ReturnsDefaultSettings()
+    {
+        using var env = CreateEnvironmentScope();
+        var controller = CreateController();
+
+        var result = await controller.GetSettings();
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var json = JsonSerializer.Serialize(ok.Value);
+
+        json.Should().Contain("\"UseChannelNamesInsteadOfNumericIds\":false");
+        json.Should().Contain("\"SortChannelsByIdThenDisplayName\":true");
+        json.Should().Contain("settings.json");
+    }
+
+    [Fact]
+    public async Task SaveSettings_PersistsSettingsJson()
+    {
+        using var env = CreateEnvironmentScope();
+        var controller = CreateController();
+
+        var result = await controller.SaveSettings(new AppSettings
+        {
+            Channel = new ChannelOutputSettings { UseChannelNamesInsteadOfNumericIds = true }
+        });
+
+        result.Should().BeOfType<OkObjectResult>();
+        File.ReadAllText(Path.Combine(_tempDir, "settings.json"))
+            .Should()
+            .Contain("\"useChannelNamesInsteadOfNumericIds\": true");
+        File.ReadAllText(Path.Combine(_tempDir, "settings.json"))
+            .Should()
+            .Contain("\"sortChannelsByIdThenDisplayName\": true");
+    }
+
+    [Fact]
+    public async Task GetSettings_AppliesDockerEnvironmentOverrides()
+    {
+        using var env = CreateEnvironmentScope(new Dictionary<string, string?>
+        {
+            ["USE_CHANNEL_NAMES_INSTEAD_OF_NUMERIC_IDS"] = "true",
+            ["SORT_CHANNELS_BY_ID"] = "false"
+        });
+        File.WriteAllText(Path.Combine(_tempDir, "settings.json"), """
+        {
+          "channel": {
+            "useChannelNamesInsteadOfNumericIds": false,
+            "sortChannelsByIdThenDisplayName": true
+          }
+        }
+        """);
+        var controller = CreateController();
+
+        var result = await controller.GetSettings();
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var json = JsonSerializer.Serialize(ok.Value);
+
+        json.Should().Contain("\"UseChannelNamesInsteadOfNumericIds\":true");
+        json.Should().Contain("\"SortChannelsByIdThenDisplayName\":false");
     }
 
     [Fact]
@@ -242,7 +308,7 @@ public class ConfigControllerTests : IDisposable
             .Setup(service => service.TestSourceAsync("https://example.com/epg"))
             .ReturnsAsync(new SourceTestResult { Success = true, Message = "ok" });
 
-        var controller = new ConfigController(validationService.Object, new ChannelMapLoader());
+        var controller = new ConfigController(validationService.Object, new ChannelMapLoader(), new FileAppSettingsService());
 
         var result = await controller.TestSource(new TestSourceRequest { Url = "https://example.com/epg" });
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
@@ -275,7 +341,7 @@ public class ConfigControllerTests : IDisposable
             .Setup(service => service.PreviewChannelsAsync("https://example.com/epg", channelMapPath))
             .ReturnsAsync(new ChannelPreviewResult { Success = true, Message = "preview" });
 
-        var controller = new ConfigController(validationService.Object, new ChannelMapLoader());
+        var controller = new ConfigController(validationService.Object, new ChannelMapLoader(), new FileAppSettingsService());
 
         await controller.PreviewChannels(new PreviewChannelsRequest { Url = "https://example.com/epg", UseCurrentMap = true });
 
@@ -291,7 +357,7 @@ public class ConfigControllerTests : IDisposable
             .Setup(service => service.PreviewChannelsAsync("https://example.com/epg", null))
             .ReturnsAsync(new ChannelPreviewResult { Success = true, Message = "preview" });
 
-        var controller = new ConfigController(validationService.Object, new ChannelMapLoader());
+        var controller = new ConfigController(validationService.Object, new ChannelMapLoader(), new FileAppSettingsService());
 
         await controller.PreviewChannels(new PreviewChannelsRequest { Url = "https://example.com/epg", UseCurrentMap = true });
 
@@ -301,16 +367,25 @@ public class ConfigControllerTests : IDisposable
     private ConfigController CreateController()
     {
         var validationService = new Mock<IValidationService>();
-        return new ConfigController(validationService.Object, new ChannelMapLoader());
+        return new ConfigController(validationService.Object, new ChannelMapLoader(), new FileAppSettingsService());
     }
 
-    private EnvironmentVariableScope CreateEnvironmentScope()
+    private EnvironmentVariableScope CreateEnvironmentScope(IDictionary<string, string?>? additionalUpdates = null)
     {
-        return new EnvironmentVariableScope(new Dictionary<string, string?>
+        var updates = new Dictionary<string, string?>
         {
             ["CHANNEL_MAP_PATH"] = Path.Combine(_tempDir, "ChannelMap.json"),
-            ["EPG_URL_FILES"] = Path.Combine(_tempDir, "epg_urls.txt")
-        });
+            ["EPG_URL_FILES"] = Path.Combine(_tempDir, "epg_urls.txt"),
+            ["SETTINGS_PATH"] = Path.Combine(_tempDir, "settings.json")
+        };
+
+        if (additionalUpdates is not null)
+        {
+            foreach (var update in additionalUpdates)
+                updates[update.Key] = update.Value;
+        }
+
+        return new EnvironmentVariableScope(updates);
     }
 
     public void Dispose()

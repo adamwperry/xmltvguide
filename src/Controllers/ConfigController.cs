@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.Text;
 using System.Text.Json;
+using xmlTVGuide.Services.AppSettings;
 using xmlTVGuide.Services.ChannelMap;
 using xmlTVGuide.Services.Validation;
 using IOFile = System.IO.File;
@@ -13,15 +14,27 @@ namespace xmlTVGuide.Controllers;
 [Authorize]
 public class ConfigController : ControllerBase
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true
+    };
+
     private readonly string _epgUrlsPath;
     private readonly string _channelMapPath;
     private readonly IValidationService _validationService;
     private readonly IChannelMapLoader _channelMapLoader;
+    private readonly IAppSettingsService _appSettingsService;
 
-    public ConfigController(IValidationService validationService, IChannelMapLoader channelMapLoader)
+    public ConfigController(
+        IValidationService validationService,
+        IChannelMapLoader channelMapLoader,
+        IAppSettingsService appSettingsService)
     {
         _validationService = validationService;
         _channelMapLoader = channelMapLoader;
+        _appSettingsService = appSettingsService;
 
         // Determine if running in Docker or locally
         var isDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
@@ -94,6 +107,13 @@ public class ConfigController : ControllerBase
                 {
                     Path = _channelMapPath,
                     Content = IOFile.Exists(_channelMapPath) ? await IOFile.ReadAllTextAsync(_channelMapPath) : "{\"channels\": []}"
+                },
+                Settings = new ConfigBackupFile
+                {
+                    Path = _appSettingsService.SettingsPath,
+                    Content = IOFile.Exists(_appSettingsService.SettingsPath)
+                        ? await IOFile.ReadAllTextAsync(_appSettingsService.SettingsPath)
+                        : JsonSerializer.Serialize(new AppSettings(), JsonOptions)
                 }
             };
 
@@ -126,6 +146,12 @@ public class ConfigController : ControllerBase
 
             await IOFile.WriteAllTextAsync(_epgUrlsPath, request.EpgUrls.Content.Replace("\r\n", "\n"));
             await IOFile.WriteAllTextAsync(_channelMapPath, request.ChannelMap.Content.Replace("\r\n", "\n"));
+            if (request.Settings is not null)
+            {
+                var settings = JsonSerializer.Deserialize<AppSettings>(request.Settings.Content, JsonOptions)
+                    ?? new AppSettings();
+                await _appSettingsService.SaveAsync(settings);
+            }
 
             return Ok(new
             {
@@ -160,6 +186,45 @@ public class ConfigController : ControllerBase
 
             var content = await IOFile.ReadAllTextAsync(_channelMapPath);
             return Ok(new { content, path = _channelMapPath });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("settings")]
+    public async Task<IActionResult> GetSettings()
+    {
+        try
+        {
+            var settings = await _appSettingsService.LoadAsync();
+            return Ok(new { settings, path = _appSettingsService.SettingsPath });
+        }
+        catch (JsonException ex)
+        {
+            return BadRequest(new { error = "Invalid settings JSON format", details = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("settings")]
+    public async Task<IActionResult> SaveSettings([FromBody] AppSettings request)
+    {
+        try
+        {
+            request.Channel ??= new ChannelOutputSettings();
+            await _appSettingsService.SaveAsync(request);
+
+            return Ok(new
+            {
+                message = "Settings saved successfully",
+                settings = request,
+                path = _appSettingsService.SettingsPath
+            });
         }
         catch (Exception ex)
         {
@@ -328,6 +393,7 @@ public class ConfigBackup
     public DateTime ExportedAtUtc { get; set; }
     public ConfigBackupFile? EpgUrls { get; set; }
     public ConfigBackupFile? ChannelMap { get; set; }
+    public ConfigBackupFile? Settings { get; set; }
 }
 
 public class ConfigBackupFile

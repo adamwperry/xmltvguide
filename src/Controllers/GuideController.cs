@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using xmlTVGuide.Services;
+using xmlTVGuide.Services.AppSettings;
 using xmlTVGuide.Services.CronLogger;
 using xmlTVGuide.Services.BackgroundJobs;
 using IOFile = System.IO.File;
@@ -14,15 +15,22 @@ public class GuideController : ControllerBase
     private readonly ICronLogger _cronLogger;
     private readonly IEpgGenerationService _generationService;
     private readonly IBackgroundJobService _backgroundJobService;
+    private readonly IAppSettingsService _appSettingsService;
 
-    public GuideController(ICronLogger cronLogger, IEpgGenerationService generationService, IBackgroundJobService backgroundJobService)
+    public GuideController(
+        ICronLogger cronLogger,
+        IEpgGenerationService generationService,
+        IBackgroundJobService backgroundJobService,
+        IAppSettingsService appSettingsService)
     {
         _cronLogger = cronLogger;
         _generationService = generationService;
         _backgroundJobService = backgroundJobService;
+        _appSettingsService = appSettingsService;
     }
 
     [HttpGet("guide.xml")]
+    [AllowAnonymous]
     public IActionResult GetGuideXml()
     {
         var outputPath = Environment.GetEnvironmentVariable("OUTPUT_PATH") ?? "/app/output/guide.xml";
@@ -58,7 +66,7 @@ public class GuideController : ControllerBase
     }
 
     [HttpPost("rebuild")]
-    public async Task<IActionResult> RebuildGuide()
+    public async Task<IActionResult> RebuildGuide([FromBody] RebuildGuideRequest? request = null)
     {
         try
         {
@@ -79,11 +87,25 @@ public class GuideController : ControllerBase
             {
                 try
                 {
-                    var result = await _generationService.GenerateAsync(new[] {
+                    var args = new List<string>
+                    {
                         $"--epgUrlFiles={epgUrlsPath}",
                         $"--channelmap={channelMapPath}",
                         $"--output={outputPath}"
-                    });
+                    };
+
+                    var settings = await _appSettingsService.LoadAsync();
+                    var useNameBasedChannelIds =
+                        request?.StripChannelNumbers ??
+                        settings.Channel.UseChannelNamesInsteadOfNumericIds;
+
+                    if (useNameBasedChannelIds)
+                        args.Add("--strip-channel-numbers");
+
+                    if (!settings.Channel.SortChannelsByIdThenDisplayName)
+                        args.Add("--preserve-channel-order");
+
+                    var result = await _generationService.GenerateAsync(args.ToArray());
 
                     if (!result.Success)
                         throw new Exception(result.Message);
@@ -135,4 +157,9 @@ public class GuideController : ControllerBase
         _backgroundJobService.ClearHistory();
         return Ok(new { message = "Rebuild job history cleared" });
     }
+}
+
+public class RebuildGuideRequest
+{
+    public bool? StripChannelNumbers { get; set; }
 }

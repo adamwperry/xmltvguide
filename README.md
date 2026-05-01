@@ -98,6 +98,26 @@ Maps provider/channel identifiers into display names Emby can match reliably:
 
 The UI validation warns about duplicate `channelId` values, blank channel IDs, and blank names.
 
+### `settings.json`
+
+Persists UI and build settings:
+
+```json
+{
+  "channel": {
+    "useChannelNamesInsteadOfNumericIds": false,
+    "sortChannelsByIdThenDisplayName": true
+  }
+}
+```
+
+Docker Compose can also set these values with environment variables:
+
+```env
+USE_CHANNEL_NAMES_INSTEAD_OF_NUMERIC_IDS=false
+SORT_CHANNELS_BY_ID=true
+```
+
 # Build & Deploy via Docker
 
 ## 1. Build Docker Image Locally

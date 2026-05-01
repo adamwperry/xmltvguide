@@ -65,7 +65,7 @@ public class GuideOneParser
     /// <summary>
     /// Gets the sorted channels from the EPG data.
     /// It ensures that each channel is unique based on its ID.
-    /// The channels are sorted by their call sign.
+    /// The channels are sorted by channel number, then channel ID, then call sign.
     /// </summary>
     /// <param name="epgData">The EPG data in JSON format.</param>
     /// <returns>
@@ -87,7 +87,11 @@ public class GuideOneParser
                 uniqueChannels.TryAdd(id, c!);
         }
 
-        return uniqueChannels.Values.OrderBy(c => c[CallSignKey]?.ToString() ?? "");
+        return uniqueChannels.Values
+            .OrderBy(c => GetNumericChannelSortKey(
+                c[ChannelNoKey]?.ToString(),
+                c[ChannelIdKey]?.ToString(),
+                c[CallSignKey]?.ToString()));
     }
 
     /// <summary>

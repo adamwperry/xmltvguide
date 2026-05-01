@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using xmlTVGuide.Models;
@@ -96,5 +97,56 @@ public abstract class ParserBase : IGuideParser
             return dt.ToString("yyyyMMddHHmmss") + " +0000";
         }
         return null;
+    }
+
+    protected static (int Bucket, decimal Number, string Text) GetNumericChannelSortKey(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (TryGetLeadingChannelNumber(value, out var number))
+                return (0, number, value?.Trim() ?? "");
+        }
+
+        var text = values
+            .Select(value => value?.Trim())
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
+
+        return (1, decimal.MaxValue, text);
+    }
+
+    private static bool TryGetLeadingChannelNumber(string? value, out decimal number)
+    {
+        number = 0;
+        var text = value?.Trim();
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var length = 0;
+        var hasDigit = false;
+        var hasDecimalPoint = false;
+
+        foreach (var ch in text)
+        {
+            if (char.IsDigit(ch))
+            {
+                hasDigit = true;
+                length++;
+                continue;
+            }
+
+            if (ch == '.' && !hasDecimalPoint)
+            {
+                hasDecimalPoint = true;
+                length++;
+                continue;
+            }
+
+            break;
+        }
+
+        if (!hasDigit)
+            return false;
+
+        return decimal.TryParse(text[..length], NumberStyles.Number, CultureInfo.InvariantCulture, out number);
     }
 }

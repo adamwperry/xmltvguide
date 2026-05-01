@@ -113,7 +113,7 @@ public class GuideTwoParser
     /// <summary>
     /// Distincts and sorts the items by channel source ID and network name.
     /// This method filters the items to ensure each channel is represented only once,
-    /// and sorts them by the network name.
+    /// and sorts them by numeric source ID.
     /// </summary>
     /// <param name="items"><see cref="JsonArray"/> containing the items to be processed.</param>
     /// <returns>
@@ -125,7 +125,9 @@ public class GuideTwoParser
                 .Where(item => item?[ChannelKey]?[SourceIdKey] != null)
                 .GroupBy(item => item?[ChannelKey]?[SourceIdKey]?.ToString())
                 .Select(g => g.First())
-                .OrderBy(item => item?[ChannelKey]?[NetworkNameKey]?.ToString())
+                .OrderBy(item => GetNumericChannelSortKey(
+                    item?[ChannelKey]?[SourceIdKey]?.ToString(),
+                    item?[ChannelKey]?[NetworkNameKey]?.ToString()))
                 .Select(item => item is null ? null : JsonNode.Parse(item.ToJsonString()))
                 .ToArray()
         );

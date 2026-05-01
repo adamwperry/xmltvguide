@@ -145,6 +145,11 @@
                     <div class="card-header-title">
                         <img src="/images/icons/iconChannels.svg" alt="Channels" class="header-icon"> Channel Mapping
                     </div>
+                    <div class="card-header-actions">
+                        <button type="button" onclick="openChannelSettingsModal()" class="btn-secondary btn-sm">
+                            <img src="/images/icons/iconSettings.svg" alt="Settings" class="btn-icon"> Settings
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="file-path" id="channel-path">Loading...</div>
@@ -248,6 +253,39 @@
                         <div id="cron-logs-list" class="cron-logs-list hidden"></div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Channel Settings Modal -->
+    <div id="channelSettingsModal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeChannelSettingsModal()"></div>
+        <div class="modal-content settings-modal-content">
+            <div class="modal-header">
+                <h3>Channel Settings</h3>
+                <button class="modal-close" onclick="closeChannelSettingsModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-option-group">
+                    <label class="settings-option">
+                        <input type="checkbox" id="strip-channel-numbers-option">
+                        <span>
+                            <strong>Use channel names instead of numeric IDs</strong>
+                            <small>Compiled XML will use clean channel names for channel IDs and matching programme links.</small>
+                        </span>
+                    </label>
+                    <label class="settings-option">
+                        <input type="checkbox" id="sort-channels-option">
+                        <span>
+                            <strong>Sort channels by ID, then display name</strong>
+                            <small>Compiled XML will list channels alphabetically by final channel ID with display name as the tie-breaker.</small>
+                        </span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeChannelSettingsModal()">Cancel</button>
+                <button class="btn-primary" onclick="saveChannelSettings()">Save</button>
             </div>
         </div>
     </div>
@@ -370,6 +408,7 @@
                 document.getElementById('guidePreviewModal').classList.add('hidden');
                 document.getElementById('channelPreviewModal').classList.add('hidden');
                 document.getElementById('mapSuggestionsModal').classList.add('hidden');
+                document.getElementById('channelSettingsModal').classList.add('hidden');
             }
         });
 
@@ -652,6 +691,54 @@
 
         function closeChannelPreviewModal() {
             document.getElementById('channelPreviewModal').classList.add('hidden');
+        }
+
+        function openChannelSettingsModal() {
+            document.getElementById('channelSettingsModal').classList.remove('hidden');
+        }
+
+        function closeChannelSettingsModal() {
+            document.getElementById('channelSettingsModal').classList.add('hidden');
+        }
+
+        async function loadChannelSettings() {
+            try {
+                const response = await apiCall('settings');
+                const useNameBasedChannelIds =
+                    !!response?.settings?.channel?.useChannelNamesInsteadOfNumericIds;
+                const sortChannels =
+                    response?.settings?.channel?.sortChannelsByIdThenDisplayName !== false;
+                const nameIdsCheckbox = document.getElementById('strip-channel-numbers-option');
+                const sortCheckbox = document.getElementById('sort-channels-option');
+                if (nameIdsCheckbox) {
+                    nameIdsCheckbox.checked = useNameBasedChannelIds;
+                }
+                if (sortCheckbox) {
+                    sortCheckbox.checked = sortChannels;
+                }
+            } catch (error) {
+                console.error('Error loading channel settings:', error);
+                showToast(`Error loading channel settings: ${error.message}`, 'error');
+            }
+        }
+
+        async function saveChannelSettings() {
+            try {
+                const checkbox = document.getElementById('strip-channel-numbers-option');
+                const sortCheckbox = document.getElementById('sort-channels-option');
+                const settings = {
+                    channel: {
+                        useChannelNamesInsteadOfNumericIds: !!checkbox?.checked,
+                        sortChannelsByIdThenDisplayName: !!sortCheckbox?.checked
+                    }
+                };
+
+                await apiCall('settings', 'POST', settings);
+                closeChannelSettingsModal();
+                showToast('Channel settings saved.', 'success');
+            } catch (error) {
+                showToast(`Error saving channel settings: ${error.message}`, 'error');
+            }
         }
 
         function openMapSuggestionsModal() {
@@ -1326,6 +1413,7 @@
 
                 await loadEpgUrls();
                 await loadChannelMap();
+                await loadChannelSettings();
                 await loadStatus();
                 showStatus('channel-status', buildChannelMapStatusMessage(result, false), result.warnings?.length > 0 ? 'warning' : 'success', true);
                 showToast('Config backup restored.', 'success');
@@ -1351,9 +1439,6 @@
             try {
                 const response = await fetch('/rebuild', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
                     credentials: 'include'
                 });
 
@@ -2413,6 +2498,7 @@
             await loadStatus();
             await loadEpgUrls();
             await loadChannelMap();
+            await loadChannelSettings();
             await loadCronLogs();
             await loadRebuildHistory();
         });

@@ -1,9 +1,11 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using xmlTVGuide.Controllers;
 using xmlTVGuide.Services;
+using xmlTVGuide.Services.AppSettings;
 using xmlTVGuide.Services.BackgroundJobs;
 using xmlTVGuide.Services.CronLogger;
 using Xunit;
@@ -17,7 +19,8 @@ public class GuideControllerTests : IDisposable
     {
         ["OUTPUT_PATH"] = Environment.GetEnvironmentVariable("OUTPUT_PATH"),
         ["CHANNEL_MAP_PATH"] = Environment.GetEnvironmentVariable("CHANNEL_MAP_PATH"),
-        ["EPG_URL_FILES"] = Environment.GetEnvironmentVariable("EPG_URL_FILES")
+        ["EPG_URL_FILES"] = Environment.GetEnvironmentVariable("EPG_URL_FILES"),
+        ["SETTINGS_PATH"] = Environment.GetEnvironmentVariable("SETTINGS_PATH")
     };
 
     public GuideControllerTests()
@@ -49,6 +52,17 @@ public class GuideControllerTests : IDisposable
 
         result.FileName.Should().Be(outputPath);
         result.ContentType.Should().Be("application/xml");
+    }
+
+    [Fact]
+    public void get_guide_xml_allows_anonymous_access_for_emby()
+    {
+        var method = typeof(GuideController).GetMethod(nameof(GuideController.GetGuideXml));
+
+        method.Should().NotBeNull();
+        method!.GetCustomAttributes(typeof(AllowAnonymousAttribute), inherit: false)
+            .Should()
+            .ContainSingle();
     }
 
     [Fact]
@@ -133,6 +147,111 @@ public class GuideControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task rebuild_passes_strip_channel_numbers_option_to_generation_service()
+    {
+        var epgPath = Path.Combine(_tempDir, "epg_urls.txt");
+        var channelMapPath = Path.Combine(_tempDir, "ChannelMap.json");
+        var outputPath = Path.Combine(_tempDir, "guide.xml");
+        File.WriteAllText(epgPath, "https://example.com/epg");
+        File.WriteAllText(channelMapPath, "{\"channels\":[]}");
+        SetPaths(outputPath, channelMapPath, epgPath);
+
+        Func<Task>? rebuildJob = null;
+        var backgroundJobs = new Mock<IBackgroundJobService>();
+        backgroundJobs
+            .Setup(service => service.TryStartJobAsync(It.IsAny<Func<Task>>(), "EPG Rebuild"))
+            .Callback<Func<Task>, string>((job, _) => rebuildJob = job)
+            .ReturnsAsync((true, "EPG Rebuild started successfully"));
+
+        var generationService = new Mock<IEpgGenerationService>();
+        generationService
+            .Setup(service => service.GenerateAsync(It.IsAny<string[]>()))
+            .ReturnsAsync(new EpgGenerationResult { Success = true, Message = "ok" });
+
+        var result = await CreateController(generationService: generationService, backgroundJobs: backgroundJobs)
+            .RebuildGuide(new RebuildGuideRequest { StripChannelNumbers = true });
+
+        result.Should().BeOfType<AcceptedResult>();
+        rebuildJob.Should().NotBeNull();
+        await rebuildJob!();
+
+        generationService.Verify(service => service.GenerateAsync(It.Is<string[]>(args =>
+            args.Contains("--strip-channel-numbers"))), Times.Once);
+    }
+
+    [Fact]
+    public async Task rebuild_uses_persisted_settings_when_request_does_not_override()
+    {
+        var epgPath = Path.Combine(_tempDir, "epg_urls.txt");
+        var channelMapPath = Path.Combine(_tempDir, "ChannelMap.json");
+        var outputPath = Path.Combine(_tempDir, "guide.xml");
+        File.WriteAllText(epgPath, "https://example.com/epg");
+        File.WriteAllText(channelMapPath, "{\"channels\":[]}");
+        SetPaths(outputPath, channelMapPath, epgPath);
+        File.WriteAllText(
+            Path.Combine(_tempDir, "settings.json"),
+            "{\"channel\":{\"useChannelNamesInsteadOfNumericIds\":true}}");
+
+        Func<Task>? rebuildJob = null;
+        var backgroundJobs = new Mock<IBackgroundJobService>();
+        backgroundJobs
+            .Setup(service => service.TryStartJobAsync(It.IsAny<Func<Task>>(), "EPG Rebuild"))
+            .Callback<Func<Task>, string>((job, _) => rebuildJob = job)
+            .ReturnsAsync((true, "EPG Rebuild started successfully"));
+
+        var generationService = new Mock<IEpgGenerationService>();
+        generationService
+            .Setup(service => service.GenerateAsync(It.IsAny<string[]>()))
+            .ReturnsAsync(new EpgGenerationResult { Success = true, Message = "ok" });
+
+        var result = await CreateController(generationService: generationService, backgroundJobs: backgroundJobs)
+            .RebuildGuide();
+
+        result.Should().BeOfType<AcceptedResult>();
+        rebuildJob.Should().NotBeNull();
+        await rebuildJob!();
+
+        generationService.Verify(service => service.GenerateAsync(It.Is<string[]>(args =>
+            args.Contains("--strip-channel-numbers"))), Times.Once);
+    }
+
+    [Fact]
+    public async Task rebuild_passes_preserve_channel_order_when_sort_setting_is_disabled()
+    {
+        var epgPath = Path.Combine(_tempDir, "epg_urls.txt");
+        var channelMapPath = Path.Combine(_tempDir, "ChannelMap.json");
+        var outputPath = Path.Combine(_tempDir, "guide.xml");
+        File.WriteAllText(epgPath, "https://example.com/epg");
+        File.WriteAllText(channelMapPath, "{\"channels\":[]}");
+        SetPaths(outputPath, channelMapPath, epgPath);
+        File.WriteAllText(
+            Path.Combine(_tempDir, "settings.json"),
+            "{\"channel\":{\"sortChannelsByIdThenDisplayName\":false}}");
+
+        Func<Task>? rebuildJob = null;
+        var backgroundJobs = new Mock<IBackgroundJobService>();
+        backgroundJobs
+            .Setup(service => service.TryStartJobAsync(It.IsAny<Func<Task>>(), "EPG Rebuild"))
+            .Callback<Func<Task>, string>((job, _) => rebuildJob = job)
+            .ReturnsAsync((true, "EPG Rebuild started successfully"));
+
+        var generationService = new Mock<IEpgGenerationService>();
+        generationService
+            .Setup(service => service.GenerateAsync(It.IsAny<string[]>()))
+            .ReturnsAsync(new EpgGenerationResult { Success = true, Message = "ok" });
+
+        var result = await CreateController(generationService: generationService, backgroundJobs: backgroundJobs)
+            .RebuildGuide();
+
+        result.Should().BeOfType<AcceptedResult>();
+        rebuildJob.Should().NotBeNull();
+        await rebuildJob!();
+
+        generationService.Verify(service => service.GenerateAsync(It.Is<string[]>(args =>
+            args.Contains("--preserve-channel-order"))), Times.Once);
+    }
+
+    [Fact]
     public async Task rebuild_returns_500_when_background_service_throws()
     {
         var epgPath = Path.Combine(_tempDir, "epg_urls.txt");
@@ -208,7 +327,8 @@ public class GuideControllerTests : IDisposable
         return new GuideController(
             (cronLogger ?? new Mock<ICronLogger>()).Object,
             (generationService ?? new Mock<IEpgGenerationService>()).Object,
-            (backgroundJobs ?? new Mock<IBackgroundJobService>()).Object);
+            (backgroundJobs ?? new Mock<IBackgroundJobService>()).Object,
+            new FileAppSettingsService());
     }
 
     private void SetPaths(string outputPath, string channelMapPath, string epgPath)
@@ -216,6 +336,7 @@ public class GuideControllerTests : IDisposable
         Environment.SetEnvironmentVariable("OUTPUT_PATH", outputPath);
         Environment.SetEnvironmentVariable("CHANNEL_MAP_PATH", channelMapPath);
         Environment.SetEnvironmentVariable("EPG_URL_FILES", epgPath);
+        Environment.SetEnvironmentVariable("SETTINGS_PATH", Path.Combine(_tempDir, "settings.json"));
     }
 
     public void Dispose()

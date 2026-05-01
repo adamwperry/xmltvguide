@@ -13,5 +13,12 @@ public interface IXmlTVBuilder
     /// <param name="epgData"><see cref="List{string}"/> containing EPG data in JSON format.</param>
     /// <param name="channelMapPath"><see cref="string"/> path to the channel map file.</param>
     /// <param name="outputPath"><see cref="string"/> path where the XML TV file will be saved.</param>
-    void BuildXmlTV(List<string> epgData, string channelMapPath, string outputPath);
+    /// <param name="stripChannelNumbers">Whether leading channel numbers should be removed from display names.</param>
+    /// <param name="sortChannelsByIdThenDisplayName">Whether channels should be sorted by channel ID and display name.</param>
+    void BuildXmlTV(
+        List<string> epgData,
+        string channelMapPath,
+        string outputPath,
+        bool stripChannelNumbers = false,
+        bool sortChannelsByIdThenDisplayName = true);
 }

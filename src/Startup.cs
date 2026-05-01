@@ -1,5 +1,6 @@
 using xmlTVGuide.Services;
 using xmlTVGuide.Services.ArgumentParser;
+using xmlTVGuide.Services.AppSettings;
 using xmlTVGuide.Services.FileServices;
 using xmlTVGuide.Services.ChannelMap;
 using xmlTVGuide.Services.CronLogger;
@@ -66,6 +67,7 @@ public class Startup
 
         // Add existing services
         services.AddSingleton<IAppArguments, ArgumentParser>();
+        services.AddSingleton<IAppSettingsService, FileAppSettingsService>();
         services.AddSingleton<IXmlTVBuilder, XmlTVBuilder>();
         services.AddSingleton<IFileService, XMLFileService>();
         services.AddSingleton<IChannelMapLoader, ChannelMapLoader>();

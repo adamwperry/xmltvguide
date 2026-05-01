@@ -1616,6 +1616,57 @@ a img.btn-icon {
     }
 }
 
+.settings-modal-content {
+    width: min(92vw, 520px);
+    min-width: 0;
+}
+
+.settings-option-group {
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+}
+
+.settings-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    color: #b8c2cc;
+    font-size: 13px;
+    line-height: 1.35;
+    text-align: left;
+}
+
+.settings-option + .settings-option {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.settings-option input {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    margin-top: 2px;
+    accent-color: #4a9eff;
+}
+
+.settings-option strong,
+.settings-option small {
+    display: block;
+}
+
+.settings-option strong {
+    color: #ffffff;
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+.settings-option small {
+    color: #a9b4c0;
+    font-size: 12px;
+}
+
 /* Rebuild Status Styles */
 .rebuild-status-section {
     margin-top: 20px;

@@ -690,7 +690,7 @@ public class GuideOneParserTests : IDisposable
     }
 
     [Fact]
-    public void ProcessChannels_ChannelsSortedByCallSign_ReturnsChannelsInOrder()
+    public void ProcessChannels_ChannelsSortedByChannelNumber_ReturnsChannelsInOrder()
     {
         // Arrange
         var json = """
@@ -699,16 +699,19 @@ public class GuideOneParserTests : IDisposable
                 {
                     "channelId": "3",
                     "callSign": "ZZZ",
+                    "channelNo": "30",
                     "events": []
                 },
                 {
                     "channelId": "1",
                     "callSign": "AAA",
+                    "channelNo": "10",
                     "events": []
                 },
                 {
                     "channelId": "2",
                     "callSign": "MMM",
+                    "channelNo": "20",
                     "events": []
                 }
             ]
@@ -723,9 +726,9 @@ public class GuideOneParserTests : IDisposable
         // Assert
         var channels = result.Elements("channel").ToList();
         channels.Should().HaveCount(3);
-        channels[0].Attribute("id")!.Value.Should().Be("1"); // AAA
-        channels[1].Attribute("id")!.Value.Should().Be("2"); // MMM
-        channels[2].Attribute("id")!.Value.Should().Be("3"); // ZZZ
+        channels[0].Attribute("id")!.Value.Should().Be("1"); // 10 AAA
+        channels[1].Attribute("id")!.Value.Should().Be("2"); // 20 MMM
+        channels[2].Attribute("id")!.Value.Should().Be("3"); // 30 ZZZ
     }
 
     #endregion

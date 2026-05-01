@@ -14,7 +14,7 @@ namespace XmlTvGuide.Generator.Tests;
 public class XmlTVBuilderTests
 {
     [Fact]
-    public void BuildXmlTV_CleansLeadingChannelNumbersWithoutReorderingGuide()
+    public void BuildXmlTV_SortsChannelsByIdThenDisplayName()
     {
         // Arrange
         XDocument? savedDocument = null;
@@ -38,13 +38,103 @@ public class XmlTVBuilderTests
 
         nodes.Select(node => node.Name.LocalName)
             .Should()
-            .Equal("channel", "programme", "channel", "programme", "channel", "programme");
+            .Equal("channel", "channel", "channel", "programme", "programme", "programme");
 
         nodes.OfType<XElement>()
             .Where(node => node.Name == "channel")
             .Select(channel => channel.Element("display-name")!.Value)
             .Should()
-            .Equal("CMDTVHD", "Bravo", "A&E");
+            .Equal("12 A&E", "Bravo", "196 CMDTVHD");
+
+        nodes.OfType<XElement>()
+            .Where(node => node.Name == "channel")
+            .Select(channel => channel.Attribute("id")!.Value)
+            .Should()
+            .Equal("a", "b", "c");
+    }
+
+    [Fact]
+    public void BuildXmlTV_PreservesParserOrderWhenSortingDisabled()
+    {
+        // Arrange
+        XDocument? savedDocument = null;
+        var fileService = new Mock<IFileService>();
+        fileService
+            .Setup(service => service.SaveFile(It.IsAny<XDocument>(), "guide.xml"))
+            .Callback<XDocument, string>((document, _) => savedDocument = document)
+            .Returns(true);
+
+        var builder = new XmlTVBuilder(
+            fileService.Object,
+            new Mock<IChannelMapLoader>().Object,
+            new[] { new StubGuideParser() });
+
+        // Act
+        builder.BuildXmlTV(
+            new List<string> { """{"format":"stub"}""" },
+            string.Empty,
+            "guide.xml",
+            sortChannelsByIdThenDisplayName: false);
+
+        // Assert
+        savedDocument.Should().NotBeNull();
+        var nodes = savedDocument!.Root!.Elements().ToList();
+
+        nodes.Select(node => node.Name.LocalName)
+            .Should()
+            .Equal("channel", "programme", "channel", "programme", "channel", "programme");
+
+        nodes.OfType<XElement>()
+            .Where(node => node.Name == "channel")
+            .Select(channel => channel.Attribute("id")!.Value)
+            .Should()
+            .Equal("c", "b", "a");
+    }
+
+    [Fact]
+    public void BuildXmlTV_RewritesChannelNumbersAndSortsByFinalId()
+    {
+        // Arrange
+        XDocument? savedDocument = null;
+        var fileService = new Mock<IFileService>();
+        fileService
+            .Setup(service => service.SaveFile(It.IsAny<XDocument>(), "guide.xml"))
+            .Callback<XDocument, string>((document, _) => savedDocument = document)
+            .Returns(true);
+
+        var builder = new XmlTVBuilder(
+            fileService.Object,
+            new Mock<IChannelMapLoader>().Object,
+            new[] { new StubGuideParser() });
+
+        // Act
+        builder.BuildXmlTV(new List<string> { """{"format":"stub"}""" }, string.Empty, "guide.xml", stripChannelNumbers: true);
+
+        // Assert
+        savedDocument.Should().NotBeNull();
+        var nodes = savedDocument!.Root!.Elements().ToList();
+
+        nodes.Select(node => node.Name.LocalName)
+            .Should()
+            .Equal("channel", "channel", "channel", "programme", "programme", "programme");
+
+        nodes.OfType<XElement>()
+            .Where(node => node.Name == "channel")
+            .Select(channel => channel.Element("display-name")!.Value)
+            .Should()
+            .Equal("A&E", "Bravo", "CMDTVHD");
+
+        nodes.OfType<XElement>()
+            .Where(node => node.Name == "channel")
+            .Select(channel => channel.Attribute("id")!.Value)
+            .Should()
+            .Equal("AE", "Bravo", "CMDTVHD");
+
+        nodes.OfType<XElement>()
+            .Where(node => node.Name == "programme")
+            .Select(programme => programme.Attribute("channel")!.Value)
+            .Should()
+            .Equal("CMDTVHD", "Bravo", "AE");
     }
 
     private sealed class StubGuideParser : IGuideParser

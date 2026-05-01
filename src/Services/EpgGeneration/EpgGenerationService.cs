@@ -198,7 +198,12 @@ public class EpgGenerationService : IEpgGenerationService
             }
 
             // Build XML TV from successful data
-            xmlTVBuilder.BuildXmlTV(successfulData, arguments.ChannelMapPath, arguments.OutputPath);
+            xmlTVBuilder.BuildXmlTV(
+                successfulData,
+                arguments.ChannelMapPath,
+                arguments.OutputPath,
+                arguments.StripChannelNumbers,
+                arguments.SortChannelsByIdThenDisplayName);
 
             // Update status with file info
             var outputPath = arguments.OutputPath;

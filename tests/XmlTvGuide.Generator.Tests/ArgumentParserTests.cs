@@ -12,6 +12,8 @@ public class ArgumentParserTests : IDisposable
         ["EPG_URL_FILES"] = Environment.GetEnvironmentVariable("EPG_URL_FILES"),
         ["CHANNEL_MAP_PATH"] = Environment.GetEnvironmentVariable("CHANNEL_MAP_PATH"),
         ["OUTPUT_PATH"] = Environment.GetEnvironmentVariable("OUTPUT_PATH"),
+        ["STRIP_CHANNEL_NUMBERS"] = Environment.GetEnvironmentVariable("STRIP_CHANNEL_NUMBERS"),
+        ["SORT_CHANNELS_BY_ID"] = Environment.GetEnvironmentVariable("SORT_CHANNELS_BY_ID"),
     };
 
     private void ClearEnv()
@@ -20,6 +22,8 @@ public class ArgumentParserTests : IDisposable
         Environment.SetEnvironmentVariable("EPG_URL_FILES", null);
         Environment.SetEnvironmentVariable("CHANNEL_MAP_PATH", null);
         Environment.SetEnvironmentVariable("OUTPUT_PATH", null);
+        Environment.SetEnvironmentVariable("STRIP_CHANNEL_NUMBERS", null);
+        Environment.SetEnvironmentVariable("SORT_CHANNELS_BY_ID", null);
     }
 
     public void Dispose()
@@ -47,6 +51,78 @@ public class ArgumentParserTests : IDisposable
         result.Urls.Should().BeEquivalentTo(new[] { "https://a.com/u1", "https://b.com/u2" });
         result.ChannelMapPath.Should().Be("/tmp/ChannelMap.json");
         result.OutputPath.Should().Be("/tmp/out/guide.xml");
+        result.StripChannelNumbers.Should().BeFalse();
+        result.SortChannelsByIdThenDisplayName.Should().BeTrue();
+    }
+
+    [Fact]
+    public void parses_strip_channel_numbers_flag()
+    {
+        ClearEnv();
+        var parser = new ArgumentParser();
+
+        var result = parser.ParseArguments(new[]
+        {
+            "--url=https://a.com/u1",
+            "--channelmap=/tmp/ChannelMap.json",
+            "--output=/tmp/out/guide.xml",
+            "--strip-channel-numbers"
+        });
+
+        result.StripChannelNumbers.Should().BeTrue();
+    }
+
+    [Fact]
+    public void parses_preserve_channel_order_flag()
+    {
+        ClearEnv();
+        var parser = new ArgumentParser();
+
+        var result = parser.ParseArguments(new[]
+        {
+            "--url=https://a.com/u1",
+            "--channelmap=/tmp/ChannelMap.json",
+            "--output=/tmp/out/guide.xml",
+            "--preserve-channel-order"
+        });
+
+        result.SortChannelsByIdThenDisplayName.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("false")]
+    [InlineData("0")]
+    [InlineData("no")]
+    public void parses_sort_channels_from_environment(string value)
+    {
+        ClearEnv();
+        Environment.SetEnvironmentVariable("EPG_URL", "https://env.com/u1");
+        Environment.SetEnvironmentVariable("CHANNEL_MAP_PATH", "/env/ChannelMap.json");
+        Environment.SetEnvironmentVariable("OUTPUT_PATH", "/env/out/guide.xml");
+        Environment.SetEnvironmentVariable("SORT_CHANNELS_BY_ID", value);
+
+        var parser = new ArgumentParser();
+        var result = parser.ParseArguments(Array.Empty<string>());
+
+        result.SortChannelsByIdThenDisplayName.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("true")]
+    [InlineData("1")]
+    [InlineData("yes")]
+    public void parses_strip_channel_numbers_from_environment(string value)
+    {
+        ClearEnv();
+        Environment.SetEnvironmentVariable("EPG_URL", "https://env.com/u1");
+        Environment.SetEnvironmentVariable("CHANNEL_MAP_PATH", "/env/ChannelMap.json");
+        Environment.SetEnvironmentVariable("OUTPUT_PATH", "/env/out/guide.xml");
+        Environment.SetEnvironmentVariable("STRIP_CHANNEL_NUMBERS", value);
+
+        var parser = new ArgumentParser();
+        var result = parser.ParseArguments(Array.Empty<string>());
+
+        result.StripChannelNumbers.Should().BeTrue();
     }
 
     [Fact]
