@@ -1,4 +1,7 @@
 using xmlTVGuide.Models;
+using System.Text.Json;
+using AppSettingsModel = xmlTVGuide.Services.AppSettings.AppSettings;
+using ChannelOutputSettingsModel = xmlTVGuide.Services.AppSettings.ChannelOutputSettings;
 
 namespace xmlTVGuide.Services.ArgumentParser;
 
@@ -26,8 +29,16 @@ public class ArgumentParser : IAppArguments
     private const string EpgUrlFilesEnv = "EPG_URL_FILES";
     private const string ChannelMapPathEnv = "CHANNEL_MAP_PATH";
     private const string OutputPathEnv = "OUTPUT_PATH";
+    private const string SettingsPathEnv = "SETTINGS_PATH";
+    private const string UseChannelNamesEnv = "USE_CHANNEL_NAMES_INSTEAD_OF_NUMERIC_IDS";
     private const string StripChannelNumbersEnv = "STRIP_CHANNEL_NUMBERS";
     private const string SortChannelsEnv = "SORT_CHANNELS_BY_ID";
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
 
     /// <summary>
     /// Parses the command line arguments and returns a ParsedArguments object.
@@ -48,8 +59,19 @@ public class ArgumentParser : IAppArguments
 
         var channelMapPath = GetArgumentValue(args, "--channelmap=", ChannelMapPathEnv, string.Empty);
         var outputPath = GetArgumentValue(args, "--output=", OutputPathEnv, Path.Combine(Directory.GetCurrentDirectory(), "output", "guide.xml"));
-        var stripChannelNumbers = HasFlag(args, "--strip-channel-numbers", StripChannelNumbersEnv);
-        var sortChannels = GetBooleanArgument(args, "--sort-channels-by-id", "--preserve-channel-order", SortChannelsEnv, defaultValue: true);
+        var settings = LoadAppSettings();
+        var stripChannelNumbers = GetBooleanFlag(
+            args,
+            "--strip-channel-numbers",
+            settings.Channel.UseChannelNamesInsteadOfNumericIds,
+            UseChannelNamesEnv,
+            StripChannelNumbersEnv);
+        var sortChannels = GetBooleanArgument(
+            args,
+            "--sort-channels-by-id",
+            "--preserve-channel-order",
+            settings.Channel.SortChannelsByIdThenDisplayName,
+            SortChannelsEnv);
 
         ValidateArguments(url, channelMapPath, outputPath);
 
@@ -128,21 +150,51 @@ public class ArgumentParser : IAppArguments
         return defaultValue;
     }
 
-    private static bool HasFlag(string[] args, string flag, string? envVariable = null)
+    private static AppSettingsModel LoadAppSettings()
+    {
+        var settingsPath = GetSettingsPath();
+        if (!File.Exists(settingsPath))
+            return new AppSettingsModel();
+
+        try
+        {
+            var content = File.ReadAllText(settingsPath);
+            var settings = string.IsNullOrWhiteSpace(content)
+                ? new AppSettingsModel()
+                : JsonSerializer.Deserialize<AppSettingsModel>(content, JsonOptions) ?? new AppSettingsModel();
+
+            settings.Channel ??= new ChannelOutputSettingsModel();
+            return settings;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            Console.WriteLine($"Warning: Could not read settings file '{settingsPath}': {ex.Message}");
+            return new AppSettingsModel();
+        }
+    }
+
+    private static string GetSettingsPath()
+    {
+        var configuredPath = Environment.GetEnvironmentVariable(SettingsPathEnv);
+        if (!string.IsNullOrWhiteSpace(configuredPath))
+            return Path.GetFullPath(configuredPath);
+
+        var isDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
+                       Directory.Exists("/app");
+        var basePath = isDocker ? "/app" : Directory.GetCurrentDirectory();
+
+        return Path.Combine(basePath, "settings.json");
+    }
+
+    private static bool GetBooleanFlag(string[] args, string flag, bool defaultValue, params string[] envVariables)
     {
         if (args.Any(a => string.Equals(a, flag, StringComparison.OrdinalIgnoreCase)))
             return true;
 
-        var envValue = string.IsNullOrWhiteSpace(envVariable)
-            ? null
-            : Environment.GetEnvironmentVariable(envVariable);
-
-        return string.Equals(envValue, "true", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(envValue, "1", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(envValue, "yes", StringComparison.OrdinalIgnoreCase);
+        return GetEnvironmentBoolean(envVariables) ?? defaultValue;
     }
 
-    private static bool GetBooleanArgument(string[] args, string trueFlag, string falseFlag, string? envVariable, bool defaultValue)
+    private static bool GetBooleanArgument(string[] args, string trueFlag, string falseFlag, bool defaultValue, params string[] envVariables)
     {
         if (args.Any(a => string.Equals(a, trueFlag, StringComparison.OrdinalIgnoreCase)))
             return true;
@@ -150,24 +202,32 @@ public class ArgumentParser : IAppArguments
         if (args.Any(a => string.Equals(a, falseFlag, StringComparison.OrdinalIgnoreCase)))
             return false;
 
-        var envValue = string.IsNullOrWhiteSpace(envVariable)
-            ? null
-            : Environment.GetEnvironmentVariable(envVariable);
+        return GetEnvironmentBoolean(envVariables) ?? defaultValue;
+    }
 
-        if (string.IsNullOrWhiteSpace(envValue))
-            return defaultValue;
+    private static bool? GetEnvironmentBoolean(params string[] envVariables)
+    {
+        foreach (var envVariable in envVariables)
+        {
+            if (string.IsNullOrWhiteSpace(envVariable))
+                continue;
 
-        if (string.Equals(envValue, "true", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(envValue, "1", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(envValue, "yes", StringComparison.OrdinalIgnoreCase))
-            return true;
+            var envValue = Environment.GetEnvironmentVariable(envVariable);
+            if (string.IsNullOrWhiteSpace(envValue))
+                continue;
 
-        if (string.Equals(envValue, "false", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(envValue, "0", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(envValue, "no", StringComparison.OrdinalIgnoreCase))
-            return false;
+            if (string.Equals(envValue, "true", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(envValue, "1", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(envValue, "yes", StringComparison.OrdinalIgnoreCase))
+                return true;
 
-        return defaultValue;
+            if (string.Equals(envValue, "false", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(envValue, "0", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(envValue, "no", StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        return null;
     }
 
     /// <summary>

@@ -1574,10 +1574,13 @@
 
                 const data = await response.json();
                 const history = data.history || [];
+                const emptyState = document.getElementById('job-history-empty');
+                const historyList = document.getElementById('job-history-list');
 
                 if (history.length === 0) {
-                    document.getElementById('job-history-empty').classList.remove('hidden');
-                    document.getElementById('job-history-list').classList.add('hidden');
+                    emptyState.classList.remove('hidden');
+                    historyList.classList.add('hidden');
+                    historyList.innerHTML = '';
                     return;
                 }
 
@@ -1610,9 +1613,9 @@
                 }
                 
                 historyHtml += '</ul>';
-                document.getElementById('job-history-list').innerHTML = historyHtml;
-                document.getElementById('job-history-empty').classList.add('hidden');
-                document.getElementById('job-history-list').classList.remove('hidden');
+                historyList.innerHTML = historyHtml;
+                emptyState.classList.add('hidden');
+                historyList.classList.remove('hidden');
             } catch (error) {
                 console.error('Error loading rebuild history:', error);
                 showStatus('job-history-status', `Error loading rebuild history: ${error.message}`, 'error');
@@ -1642,6 +1645,12 @@
                 if (!response.ok) {
                     throw new Error(`Failed to clear rebuild history: ${response.status}`);
                 }
+
+                const emptyState = document.getElementById('job-history-empty');
+                const historyList = document.getElementById('job-history-list');
+                emptyState.classList.remove('hidden');
+                historyList.classList.add('hidden');
+                historyList.innerHTML = '';
 
                 await loadRebuildHistory();
                 showStatus('job-history-status', 'Rebuild job history cleared successfully', 'success');

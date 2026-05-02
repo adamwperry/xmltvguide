@@ -12,6 +12,8 @@ public class ArgumentParserTests : IDisposable
         ["EPG_URL_FILES"] = Environment.GetEnvironmentVariable("EPG_URL_FILES"),
         ["CHANNEL_MAP_PATH"] = Environment.GetEnvironmentVariable("CHANNEL_MAP_PATH"),
         ["OUTPUT_PATH"] = Environment.GetEnvironmentVariable("OUTPUT_PATH"),
+        ["SETTINGS_PATH"] = Environment.GetEnvironmentVariable("SETTINGS_PATH"),
+        ["USE_CHANNEL_NAMES_INSTEAD_OF_NUMERIC_IDS"] = Environment.GetEnvironmentVariable("USE_CHANNEL_NAMES_INSTEAD_OF_NUMERIC_IDS"),
         ["STRIP_CHANNEL_NUMBERS"] = Environment.GetEnvironmentVariable("STRIP_CHANNEL_NUMBERS"),
         ["SORT_CHANNELS_BY_ID"] = Environment.GetEnvironmentVariable("SORT_CHANNELS_BY_ID"),
     };
@@ -22,6 +24,8 @@ public class ArgumentParserTests : IDisposable
         Environment.SetEnvironmentVariable("EPG_URL_FILES", null);
         Environment.SetEnvironmentVariable("CHANNEL_MAP_PATH", null);
         Environment.SetEnvironmentVariable("OUTPUT_PATH", null);
+        Environment.SetEnvironmentVariable("SETTINGS_PATH", Path.Combine(Path.GetTempPath(), $"xmltvguide-missing-settings-{Guid.NewGuid():N}.json"));
+        Environment.SetEnvironmentVariable("USE_CHANNEL_NAMES_INSTEAD_OF_NUMERIC_IDS", null);
         Environment.SetEnvironmentVariable("STRIP_CHANNEL_NUMBERS", null);
         Environment.SetEnvironmentVariable("SORT_CHANNELS_BY_ID", null);
     }
@@ -123,6 +127,80 @@ public class ArgumentParserTests : IDisposable
         var result = parser.ParseArguments(Array.Empty<string>());
 
         result.StripChannelNumbers.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("true")]
+    [InlineData("1")]
+    [InlineData("yes")]
+    public void parses_use_channel_names_environment_alias(string value)
+    {
+        ClearEnv();
+        Environment.SetEnvironmentVariable("EPG_URL", "https://env.com/u1");
+        Environment.SetEnvironmentVariable("CHANNEL_MAP_PATH", "/env/ChannelMap.json");
+        Environment.SetEnvironmentVariable("OUTPUT_PATH", "/env/out/guide.xml");
+        Environment.SetEnvironmentVariable("USE_CHANNEL_NAMES_INSTEAD_OF_NUMERIC_IDS", value);
+
+        var parser = new ArgumentParser();
+        var result = parser.ParseArguments(Array.Empty<string>());
+
+        result.StripChannelNumbers.Should().BeTrue();
+    }
+
+    [Fact]
+    public void parses_channel_output_settings_from_settings_file()
+    {
+        ClearEnv();
+        var settingsPath = Path.GetTempFileName();
+        File.WriteAllText(settingsPath, """
+        {
+          "channel": {
+            "useChannelNamesInsteadOfNumericIds": true,
+            "sortChannelsByIdThenDisplayName": false
+          }
+        }
+        """);
+        Environment.SetEnvironmentVariable("SETTINGS_PATH", settingsPath);
+        Environment.SetEnvironmentVariable("EPG_URL", "https://env.com/u1");
+        Environment.SetEnvironmentVariable("CHANNEL_MAP_PATH", "/env/ChannelMap.json");
+        Environment.SetEnvironmentVariable("OUTPUT_PATH", "/env/out/guide.xml");
+
+        var parser = new ArgumentParser();
+        var result = parser.ParseArguments(Array.Empty<string>());
+
+        result.StripChannelNumbers.Should().BeTrue();
+        result.SortChannelsByIdThenDisplayName.Should().BeFalse();
+
+        File.Delete(settingsPath);
+    }
+
+    [Fact]
+    public void environment_values_override_settings_file()
+    {
+        ClearEnv();
+        var settingsPath = Path.GetTempFileName();
+        File.WriteAllText(settingsPath, """
+        {
+          "channel": {
+            "useChannelNamesInsteadOfNumericIds": true,
+            "sortChannelsByIdThenDisplayName": false
+          }
+        }
+        """);
+        Environment.SetEnvironmentVariable("SETTINGS_PATH", settingsPath);
+        Environment.SetEnvironmentVariable("EPG_URL", "https://env.com/u1");
+        Environment.SetEnvironmentVariable("CHANNEL_MAP_PATH", "/env/ChannelMap.json");
+        Environment.SetEnvironmentVariable("OUTPUT_PATH", "/env/out/guide.xml");
+        Environment.SetEnvironmentVariable("USE_CHANNEL_NAMES_INSTEAD_OF_NUMERIC_IDS", "false");
+        Environment.SetEnvironmentVariable("SORT_CHANNELS_BY_ID", "true");
+
+        var parser = new ArgumentParser();
+        var result = parser.ParseArguments(Array.Empty<string>());
+
+        result.StripChannelNumbers.Should().BeFalse();
+        result.SortChannelsByIdThenDisplayName.Should().BeTrue();
+
+        File.Delete(settingsPath);
     }
 
     [Fact]
