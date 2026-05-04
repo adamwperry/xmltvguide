@@ -16,7 +16,7 @@ public class DataFetcher : DataFetcherBase
     /// </summary>
     /// <param name="url">The URL to fetch data from.</param>
     /// <returns>Returns the content of the response as a string, or empty string on failure.</returns>
-    public override async Task<string> FetchDataAsync(string url)
+    public override async Task<string> FetchDataAsync(string url, CancellationToken cancellationToken = default)
     {
         if (_client == null)
             throw new InvalidOperationException("HttpClient is not initialized.");
@@ -32,11 +32,15 @@ public class DataFetcher : DataFetcherBase
 
         try
         {
-            using var response = await _client.GetAsync(url);
+            using var response = await _client.GetAsync(url, cancellationToken);
             if (response.IsSuccessStatusCode)
-                return await response.Content.ReadAsStringAsync();
+                return await response.Content.ReadAsStringAsync(cancellationToken);
 
             throw new HttpRequestException($"Failed to fetch data from {url}. Status code: {response.StatusCode}");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -51,12 +55,12 @@ public class DataFetcher : DataFetcherBase
     /// </summary>
     /// <param name="urls"><see cref="List{string}"/> of URLs to fetch data from.</param>
     /// <returns><see cref="Task{List{string}}"/> containing the fetched data from each URL.</returns>
-    public override async Task<List<string>> FetchDataAsync(List<string> urls)
+    public override async Task<List<string>> FetchDataAsync(List<string> urls, CancellationToken cancellationToken = default)
     {
         if (urls == null || urls.Count == 0)
             throw new ArgumentException("URL list cannot be null or empty.", nameof(urls));
 
-        var tasks = urls.ConvertAll(url => FetchDataAsync(url));
+        var tasks = urls.ConvertAll(url => FetchDataAsync(url, cancellationToken));
         var results = await Task.WhenAll(tasks);
         return new List<string>(results);
     }
@@ -67,7 +71,7 @@ public class DataFetcher : DataFetcherBase
     /// </summary>
     /// <param name="url">The URL to fetch data from.</param>
     /// <returns>A FetchResult containing data, success status, and detailed error info if fetch failed.</returns>
-    public override async Task<FetchResult> FetchDataWithResultAsync(string url)
+    public override async Task<FetchResult> FetchDataWithResultAsync(string url, CancellationToken cancellationToken = default)
     {
         if (_client == null)
             throw new InvalidOperationException("HttpClient is not initialized.");
@@ -90,7 +94,7 @@ public class DataFetcher : DataFetcherBase
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            using var response = await _client.GetAsync(url);
+            using var response = await _client.GetAsync(url, cancellationToken);
             stopwatch.Stop();
 
             result.ResponseTimeMs = stopwatch.ElapsedMilliseconds;
@@ -98,7 +102,7 @@ public class DataFetcher : DataFetcherBase
 
             if (response.IsSuccessStatusCode)
             {
-                result.Data = await response.Content.ReadAsStringAsync();
+                result.Data = await response.Content.ReadAsStringAsync(cancellationToken);
                 result.ResponseSize = result.Data.Length;
                 result.Success = true;
                 return result;
@@ -120,6 +124,9 @@ public class DataFetcher : DataFetcherBase
         catch (TaskCanceledException ex)
         {
             stopwatch.Stop();
+            if (cancellationToken.IsCancellationRequested)
+                throw new OperationCanceledException(cancellationToken);
+
             result.ResponseTimeMs = stopwatch.ElapsedMilliseconds;
             result.Success = false;
             result.ErrorMessage = $"Request Timeout: {ex.Message}";
@@ -141,14 +148,13 @@ public class DataFetcher : DataFetcherBase
     /// </summary>
     /// <param name="urls">List of URLs to fetch data from.</param>
     /// <returns>A list of FetchResult objects, one per URL, containing data and detailed error info.</returns>
-    public override async Task<List<FetchResult>> FetchDataWithResultsAsync(List<string> urls)
+    public override async Task<List<FetchResult>> FetchDataWithResultsAsync(List<string> urls, CancellationToken cancellationToken = default)
     {
         if (urls == null || urls.Count == 0)
             throw new ArgumentException("URL list cannot be null or empty.", nameof(urls));
 
-        var tasks = urls.ConvertAll(url => FetchDataWithResultAsync(url));
+        var tasks = urls.ConvertAll(url => FetchDataWithResultAsync(url, cancellationToken));
         var results = await Task.WhenAll(tasks);
         return new List<FetchResult>(results);
     }
 }
-

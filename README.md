@@ -118,6 +118,14 @@ USE_CHANNEL_NAMES_INSTEAD_OF_NUMERIC_IDS=false
 SORT_CHANNELS_BY_ID=true
 ```
 
+### CORS
+
+Most deployments do not need custom CORS settings because the web UI and API are served from the same origin. If you host a separate frontend that calls this API from another origin, set `CORS_ALLOWED_ORIGINS` as a comma-separated list:
+
+```env
+CORS_ALLOWED_ORIGINS=https://xmltv.example.com,http://192.168.1.50:8586
+```
+
 # Build & Deploy via Docker
 
 ## 1. Build Docker Image Locally
@@ -271,6 +279,7 @@ services:
     restart: unless-stopped
     environment:
       - RUN_AS_WEB=true
+      - CORS_ALLOWED_ORIGINS=
 ```
 
 #### Option 2: Named Volumes (Recommended)
@@ -290,12 +299,18 @@ services:
       - RUN_AS_WEB=true
       - EPG_URL_FILES=/app/epg_urls.txt
       - CHANNEL_MAP_PATH=/app/ChannelMap.json
+      - SETTINGS_PATH=/app/settings.json
+      - USE_CHANNEL_NAMES_INSTEAD_OF_NUMERIC_IDS=
+      - SORT_CHANNELS_BY_ID=
+      - CORS_ALLOWED_ORIGINS=
       - OUTPUT_PATH=/app/output/guide.xml
     volumes:
+      - xmltvguide-config:/app/config
       - xmltvguide-output:/app/output
       - xmltvguide-logs:/app/logs
 
 volumes:
+  xmltvguide-config:
   xmltvguide-output:
   xmltvguide-logs:
 ```
@@ -316,10 +331,15 @@ services:
       - RUN_AS_WEB=true
       - EPG_URL_FILES=/app/epg_urls.txt
       - CHANNEL_MAP_PATH=/app/ChannelMap.json
+      - SETTINGS_PATH=/app/settings.json
+      - USE_CHANNEL_NAMES_INSTEAD_OF_NUMERIC_IDS=
+      - SORT_CHANNELS_BY_ID=
+      - CORS_ALLOWED_ORIGINS=
       - OUTPUT_PATH=/app/output/guide.xml
     volumes:
       - /volume1/docker/xmltvguide/epg_urls.txt:/app/epg_urls.txt
       - /volume1/docker/xmltvguide/ChannelMap.json:/app/ChannelMap.json
+      - /volume1/docker/xmltvguide/settings.json:/app/settings.json
       - /volume1/docker/xmltvguide/output:/app/output
       - /volume1/docker/xmltvguide/logs:/app/logs
 ```
@@ -330,6 +350,7 @@ services:
 > mkdir -p /volume1/docker/xmltvguide/{output,logs}
 > touch /volume1/docker/xmltvguide/epg_urls.txt
 > touch /volume1/docker/xmltvguide/ChannelMap.json
+> printf '{\n  "channel": {\n    "useChannelNamesInsteadOfNumericIds": false,\n    "sortChannelsByIdThenDisplayName": true\n  }\n}\n' > /volume1/docker/xmltvguide/settings.json
 > ```
 >
 > Adjust `/volume1/docker/xmltvguide/` to your actual path.

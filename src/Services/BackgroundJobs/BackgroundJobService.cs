@@ -20,7 +20,7 @@ public class BackgroundJobService : IBackgroundJobService
         _logger = logger;
     }
 
-    public Task<(bool canStart, string message)> TryStartJobAsync(Func<Task> jobAction, string jobName)
+    public Task<(bool canStart, string message)> TryStartJobAsync(Func<CancellationToken, Task> jobAction, string jobName)
     {
         // Try to acquire the semaphore without blocking
         if (!_jobSemaphore.Wait(0))
@@ -47,7 +47,8 @@ public class BackgroundJobService : IBackgroundJobService
                 try
                 {
                     _logger.LogInformation("Background job '{JobName}' started", jobName);
-                    await jobAction();
+                    await jobAction(cancellationToken);
+                    cancellationToken.ThrowIfCancellationRequested();
 
                     _currentStatus.CurrentMessage = $"{jobName} completed successfully";
 
@@ -112,6 +113,7 @@ public class BackgroundJobService : IBackgroundJobService
             StartTime = j.StartTime,
             EndTime = j.EndTime,
             Duration = j.Duration,
+            DurationSeconds = j.Duration.HasValue ? (int)Math.Round(j.Duration.Value.TotalSeconds) : null,
             Success = j.Success,
             Message = j.Message,
             ErrorMessage = j.ErrorMessage

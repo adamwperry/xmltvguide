@@ -13,6 +13,7 @@ services:
       - SETTINGS_PATH=/app/settings.json
       - USE_CHANNEL_NAMES_INSTEAD_OF_NUMERIC_IDS=${USE_CHANNEL_NAMES_INSTEAD_OF_NUMERIC_IDS:-}
       - SORT_CHANNELS_BY_ID=${SORT_CHANNELS_BY_ID:-}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
       - OUTPUT_PATH=/app/output/guide.xml
       - CRONTAB_PATH=/etc/cron.d/epg-cron
       - AUTH_USERNAME=${AUTH_USERNAME:-admin}

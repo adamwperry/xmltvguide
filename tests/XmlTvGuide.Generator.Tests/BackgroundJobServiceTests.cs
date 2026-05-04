@@ -16,7 +16,7 @@ public class BackgroundJobServiceTests
         var service = new BackgroundJobService(logger.Object, NullLogger<BackgroundJobService>.Instance);
         var completion = new TaskCompletionSource();
 
-        var (canStart, message) = await service.TryStartJobAsync(() =>
+        var (canStart, message) = await service.TryStartJobAsync(_ =>
         {
             completion.SetResult();
             return Task.CompletedTask;
@@ -45,8 +45,8 @@ public class BackgroundJobServiceTests
         var service = new BackgroundJobService(logger.Object, NullLogger<BackgroundJobService>.Instance);
         var gate = new TaskCompletionSource();
 
-        await service.TryStartJobAsync(async () => await gate.Task, "Long Job");
-        var (canStart, message) = await service.TryStartJobAsync(() => Task.CompletedTask, "Second Job");
+        await service.TryStartJobAsync(async _ => await gate.Task, "Long Job");
+        var (canStart, message) = await service.TryStartJobAsync(_ => Task.CompletedTask, "Second Job");
 
         canStart.Should().BeFalse();
         message.Should().Contain("already running");
@@ -60,7 +60,7 @@ public class BackgroundJobServiceTests
         var logger = new Mock<IBuildJobLogger>();
         var service = new BackgroundJobService(logger.Object, NullLogger<BackgroundJobService>.Instance);
 
-        await service.TryStartJobAsync(() => throw new InvalidOperationException("boom"), "Broken Job");
+        await service.TryStartJobAsync(_ => throw new InvalidOperationException("boom"), "Broken Job");
         await WaitUntilAsync(() => !service.GetCurrentStatus().IsRunning);
 
         service.GetCurrentStatus().CurrentMessage.Should().Contain("boom");
@@ -79,7 +79,34 @@ public class BackgroundJobServiceTests
         var logger = new Mock<IBuildJobLogger>();
         var service = new BackgroundJobService(logger.Object, NullLogger<BackgroundJobService>.Instance);
 
-        await service.TryStartJobAsync(() => throw new OperationCanceledException(), "Cancelable Job");
+        await service.TryStartJobAsync(_ => throw new OperationCanceledException(), "Cancelable Job");
+        await WaitUntilAsync(() => !service.GetCurrentStatus().IsRunning);
+
+        service.GetCurrentStatus().CurrentMessage.Should().Contain("cancelled");
+        logger.Verify(l => l.LogBuildJob(
+            It.IsAny<DateTime>(),
+            It.IsAny<DateTime?>(),
+            It.IsAny<TimeSpan?>(),
+            false,
+            It.Is<string>(s => s.Contains("cancelled")),
+            "Job was cancelled by user"), Times.Once);
+    }
+
+    [Fact]
+    public async Task cancel_current_signals_running_job_token()
+    {
+        var logger = new Mock<IBuildJobLogger>();
+        var service = new BackgroundJobService(logger.Object, NullLogger<BackgroundJobService>.Instance);
+        var started = new TaskCompletionSource();
+
+        await service.TryStartJobAsync(async cancellationToken =>
+        {
+            started.SetResult();
+            await Task.Delay(TimeSpan.FromMinutes(5), cancellationToken);
+        }, "Cancelable Job");
+
+        await started.Task;
+        service.CancelCurrent();
         await WaitUntilAsync(() => !service.GetCurrentStatus().IsRunning);
 
         service.GetCurrentStatus().CurrentMessage.Should().Contain("cancelled");
@@ -102,7 +129,7 @@ public class BackgroundJobServiceTests
             {
                 StartTime = DateTime.UtcNow,
                 EndTime = DateTime.UtcNow,
-                Duration = TimeSpan.FromSeconds(1),
+                Duration = TimeSpan.FromSeconds(65),
                 Success = true,
                 Message = "ok"
             }
@@ -111,7 +138,7 @@ public class BackgroundJobServiceTests
         var service = new BackgroundJobService(buildLogger.Object, NullLogger<BackgroundJobService>.Instance);
         var history = service.GetHistory(10);
 
-        history.Should().ContainSingle(entry => entry.Message == "ok" && entry.Success);
+        history.Should().ContainSingle(entry => entry.Message == "ok" && entry.Success && entry.DurationSeconds == 65);
     }
 
     [Fact]

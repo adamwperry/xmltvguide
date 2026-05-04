@@ -13,6 +13,7 @@ public class JobHistoryEntry
     public DateTime StartTime { get; set; }
     public DateTime? EndTime { get; set; }
     public TimeSpan? Duration { get; set; }
+    public int? DurationSeconds { get; set; }
     public bool Success { get; set; }
     public string? Message { get; set; }
     public string? ErrorMessage { get; set; }

@@ -10,8 +10,10 @@ namespace xmlTVGuide.Services;
 /// </summary>
 public class FakeDataFetcher : DataFetcherBase
 {
-    public override Task<string> FetchDataAsync(string url)
+    public override Task<string> FetchDataAsync(string url, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (!File.Exists(url))
             throw new FileNotFoundException("The file 'url' does not exist.");
 
@@ -19,7 +21,7 @@ public class FakeDataFetcher : DataFetcherBase
         return Task.FromResult(content);
     }
 
-    public override Task<List<string>> FetchDataAsync(List<string> urls)
+    public override Task<List<string>> FetchDataAsync(List<string> urls, CancellationToken cancellationToken = default)
     {
         //@todo: Implement this method to fetch data from multiple files.
         throw new NotImplementedException("This method is not implemented in the FakeDataFetcher class.");
@@ -28,8 +30,10 @@ public class FakeDataFetcher : DataFetcherBase
     /// <summary>
     /// Fetches data from a single file and returns detailed result with error information.
     /// </summary>
-    public override Task<FetchResult> FetchDataWithResultAsync(string url)
+    public override Task<FetchResult> FetchDataWithResultAsync(string url, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var result = new FetchResult
         {
             Url = url,
@@ -49,6 +53,7 @@ public class FakeDataFetcher : DataFetcherBase
             }
 
             result.Data = File.ReadAllText(url);
+            cancellationToken.ThrowIfCancellationRequested();
             result.ResponseSize = result.Data.Length;
             result.Success = true;
             stopwatch.Stop();
@@ -68,7 +73,7 @@ public class FakeDataFetcher : DataFetcherBase
     /// <summary>
     /// Fetches data from multiple files and returns detailed results with error information for each.
     /// </summary>
-    public override async Task<List<FetchResult>> FetchDataWithResultsAsync(List<string> urls)
+    public override async Task<List<FetchResult>> FetchDataWithResultsAsync(List<string> urls, CancellationToken cancellationToken = default)
     {
         if (urls == null || urls.Count == 0)
             throw new ArgumentException("URL list cannot be null or empty.", nameof(urls));
@@ -76,7 +81,8 @@ public class FakeDataFetcher : DataFetcherBase
         var results = new List<FetchResult>();
         foreach (var url in urls)
         {
-            var result = await FetchDataWithResultAsync(url);
+            cancellationToken.ThrowIfCancellationRequested();
+            var result = await FetchDataWithResultAsync(url, cancellationToken);
             results.Add(result);
         }
 

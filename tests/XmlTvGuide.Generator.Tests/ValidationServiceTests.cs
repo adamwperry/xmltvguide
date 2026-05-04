@@ -44,7 +44,7 @@ public class ValidationServiceTests : IDisposable
         using var server = await LoopbackServer.StartAsync();
 
         var fetcher = new Mock<IDataFetcher>();
-        fetcher.Setup(service => service.FetchDataAsync(It.IsAny<string>()))
+        fetcher.Setup(service => service.FetchDataAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("""{ "channels": [] }""");
 
         var parser = new StubGuideParser(canParse: true);
@@ -67,7 +67,7 @@ public class ValidationServiceTests : IDisposable
         using var server = await LoopbackServer.StartAsync();
 
         var fetcher = new Mock<IDataFetcher>();
-        fetcher.Setup(service => service.FetchDataAsync(It.IsAny<string>()))
+        fetcher.Setup(service => service.FetchDataAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("not json");
 
         var service = CreateValidationService(fetcher.Object, new[] { new StubGuideParser(canParse: true) });
@@ -85,7 +85,7 @@ public class ValidationServiceTests : IDisposable
         using var server = await LoopbackServer.StartAsync();
 
         var fetcher = new Mock<IDataFetcher>();
-        fetcher.Setup(service => service.FetchDataAsync(It.IsAny<string>()))
+        fetcher.Setup(service => service.FetchDataAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("""{ "channels": [] }""");
 
         var service = CreateValidationService(fetcher.Object, new[] { new StubGuideParser(canParse: false) });
@@ -191,7 +191,7 @@ public class ValidationServiceTests : IDisposable
     public async Task PreviewChannelsAsync_WithInvalidJson_ReturnsErrorMessage()
     {
         var fetcher = new Mock<IDataFetcher>();
-        fetcher.Setup(service => service.FetchDataAsync("source"))
+        fetcher.Setup(service => service.FetchDataAsync("source", It.IsAny<CancellationToken>()))
             .ReturnsAsync("not json");
 
         var service = CreateValidationService(fetcher.Object, new[] { new StubGuideParser(canParse: true) });
@@ -221,7 +221,7 @@ public class ValidationServiceTests : IDisposable
     public async Task PreviewChannelsAsync_WithNoMatchingParser_ReturnsParserMessage()
     {
         var fetcher = new Mock<IDataFetcher>();
-        fetcher.Setup(service => service.FetchDataAsync("source"))
+        fetcher.Setup(service => service.FetchDataAsync("source", It.IsAny<CancellationToken>()))
             .ReturnsAsync("""{ "channels": [] }""");
 
         var service = CreateValidationService(fetcher.Object, new[] { new StubGuideParser(canParse: false) });

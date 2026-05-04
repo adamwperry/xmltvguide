@@ -5,7 +5,7 @@ public interface IBackgroundJobService
     /// <summary>
     /// Attempts to start a background job. Returns false if a job is already running.
     /// </summary>
-    Task<(bool canStart, string message)> TryStartJobAsync(Func<Task> jobAction, string jobName);
+    Task<(bool canStart, string message)> TryStartJobAsync(Func<CancellationToken, Task> jobAction, string jobName);
 
     /// <summary>
     /// Gets the current status of any running background job.

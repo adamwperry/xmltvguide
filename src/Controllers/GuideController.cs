@@ -83,10 +83,12 @@ public class GuideController : ControllerBase
                 return BadRequest("Channel map file not found. Please configure channel mapping first.");
 
             // Attempt to start the rebuild job
-            async Task RunRebuild()
+            async Task RunRebuild(CancellationToken cancellationToken)
             {
                 try
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     var args = new List<string>
                     {
                         $"--epgUrlFiles={epgUrlsPath}",
@@ -105,10 +107,15 @@ public class GuideController : ControllerBase
                     if (!settings.Channel.SortChannelsByIdThenDisplayName)
                         args.Add("--preserve-channel-order");
 
-                    var result = await _generationService.GenerateAsync(args.ToArray());
+                    var result = await _generationService.GenerateAsync(args.ToArray(), cancellationToken);
 
                     if (!result.Success)
-                        throw new Exception(result.Message);
+                    {
+                        if (result.Exception is OperationCanceledException)
+                            throw result.Exception;
+
+                        throw new Exception(result.Message, result.Exception);
+                    }
                 }
                 catch (Exception ex)
                 {

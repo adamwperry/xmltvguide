@@ -23,7 +23,7 @@ public class Startup
         {
             options.AddDefaultPolicy(builder =>
             {
-                builder.SetIsOriginAllowed(origin => origin.StartsWith("http://localhost"))
+                builder.WithOrigins(GetAllowedCorsOrigins())
                        .AllowAnyMethod()
                        .AllowAnyHeader()
                        .AllowCredentials();
@@ -92,9 +92,9 @@ public class Startup
         }
 
         app.UseRouting();
+        app.UseCors();
         app.UseAuthentication();
         app.UseAuthorization();
-        app.UseCors();
 
         // Serve static files (our HTML interface)
         app.UseDefaultFiles();
@@ -115,5 +115,26 @@ public class Startup
         {
             endpoints.MapControllers();
         });
+    }
+
+    private static string[] GetAllowedCorsOrigins()
+    {
+        var configuredOrigins = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
+        if (!string.IsNullOrWhiteSpace(configuredOrigins))
+        {
+            return configuredOrigins
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(origin => Uri.TryCreate(origin, UriKind.Absolute, out _))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        return new[]
+        {
+            "http://localhost:8585",
+            "http://localhost:8586",
+            "http://127.0.0.1:8585",
+            "http://127.0.0.1:8586"
+        };
     }
 }

@@ -1589,8 +1589,12 @@
                 for (const job of history) {
                     const startTime = new Date(job.startTime);
                     const endTime = job.endTime ? new Date(job.endTime) : null;
-                    const durationSec = job.duration ? parseInt(job.duration.split('.')[0]) : 0;
+                    const durationSec = Number.isFinite(job.durationSeconds)
+                        ? job.durationSeconds
+                        : parseTimeSpanSeconds(job.duration);
                     const durationStr = durationSec < 60 ? `${durationSec}s` : `${Math.floor(durationSec / 60)}m ${durationSec % 60}s`;
+                    const jobMessage = escapeHtml(job.message || 'EPG Rebuild');
+                    const jobErrorMessage = job.errorMessage ? escapeHtml(job.errorMessage) : '';
                     
                     const statusClass = job.success ? 'rebuild-success' : 'rebuild-error';
                     const statusText = job.success ? 'Success' : 'Failed';
@@ -1600,7 +1604,7 @@
                         <div class="rebuild-item-left">
                             <div class="rebuild-status-icon">${statusIcon}</div>
                             <div class="rebuild-item-content">
-                                <div class="rebuild-item-title">${job.message || 'EPG Rebuild'}</div>
+                                <div class="rebuild-item-title">${jobMessage}</div>
                                 <div class="rebuild-item-timestamp">${startTime.toLocaleString()}</div>
                             </div>
                         </div>
@@ -1608,7 +1612,7 @@
                             <div class="rebuild-item-duration">${durationStr}</div>
                             <span class="rebuild-status-badge rebuild-status-badge-${job.success ? 'success' : 'error'}">${statusText}</span>
                         </div>
-                        ${job.errorMessage ? `<div class="rebuild-error-message">${job.errorMessage}</div>` : ''}
+                        ${jobErrorMessage ? `<div class="rebuild-error-message">${jobErrorMessage}</div>` : ''}
                     </li>`;
                 }
                 
@@ -1620,6 +1624,24 @@
                 console.error('Error loading rebuild history:', error);
                 showStatus('job-history-status', `Error loading rebuild history: ${error.message}`, 'error');
             }
+        }
+
+        function parseTimeSpanSeconds(duration) {
+            if (!duration) return 0;
+
+            const text = String(duration).trim();
+            const dayParts = text.split('.');
+            const timePart = dayParts.length > 1 ? dayParts[1] : dayParts[0];
+            const days = dayParts.length > 1 && /^\d+$/.test(dayParts[0]) ? Number(dayParts[0]) : 0;
+            const parts = timePart.split(':').map(value => Number(value));
+
+            if (parts.length !== 3 || parts.some(value => !Number.isFinite(value))) {
+                const numeric = Number.parseFloat(text);
+                return Number.isFinite(numeric) ? Math.round(numeric) : 0;
+            }
+
+            const [hours, minutes, seconds] = parts;
+            return Math.round((days * 86400) + (hours * 3600) + (minutes * 60) + seconds);
         }
 
         async function clearRebuildHistory() {

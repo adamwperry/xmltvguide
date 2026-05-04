@@ -116,7 +116,7 @@ public class GuideControllerTests : IDisposable
 
         var backgroundJobs = new Mock<IBackgroundJobService>();
         backgroundJobs
-            .Setup(service => service.TryStartJobAsync(It.IsAny<Func<Task>>(), "EPG Rebuild"))
+            .Setup(service => service.TryStartJobAsync(It.IsAny<Func<CancellationToken, Task>>(), "EPG Rebuild"))
             .ReturnsAsync((false, "A job is already running."));
 
         var result = await CreateController(backgroundJobs: backgroundJobs).RebuildGuide();
@@ -137,7 +137,7 @@ public class GuideControllerTests : IDisposable
 
         var backgroundJobs = new Mock<IBackgroundJobService>();
         backgroundJobs
-            .Setup(service => service.TryStartJobAsync(It.IsAny<Func<Task>>(), "EPG Rebuild"))
+            .Setup(service => service.TryStartJobAsync(It.IsAny<Func<CancellationToken, Task>>(), "EPG Rebuild"))
             .ReturnsAsync((true, "EPG Rebuild started successfully"));
 
         var result = await CreateController(backgroundJobs: backgroundJobs).RebuildGuide();
@@ -156,16 +156,16 @@ public class GuideControllerTests : IDisposable
         File.WriteAllText(channelMapPath, "{\"channels\":[]}");
         SetPaths(outputPath, channelMapPath, epgPath);
 
-        Func<Task>? rebuildJob = null;
+        Func<CancellationToken, Task>? rebuildJob = null;
         var backgroundJobs = new Mock<IBackgroundJobService>();
         backgroundJobs
-            .Setup(service => service.TryStartJobAsync(It.IsAny<Func<Task>>(), "EPG Rebuild"))
-            .Callback<Func<Task>, string>((job, _) => rebuildJob = job)
+            .Setup(service => service.TryStartJobAsync(It.IsAny<Func<CancellationToken, Task>>(), "EPG Rebuild"))
+            .Callback<Func<CancellationToken, Task>, string>((job, _) => rebuildJob = job)
             .ReturnsAsync((true, "EPG Rebuild started successfully"));
 
         var generationService = new Mock<IEpgGenerationService>();
         generationService
-            .Setup(service => service.GenerateAsync(It.IsAny<string[]>()))
+            .Setup(service => service.GenerateAsync(It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new EpgGenerationResult { Success = true, Message = "ok" });
 
         var result = await CreateController(generationService: generationService, backgroundJobs: backgroundJobs)
@@ -173,10 +173,10 @@ public class GuideControllerTests : IDisposable
 
         result.Should().BeOfType<AcceptedResult>();
         rebuildJob.Should().NotBeNull();
-        await rebuildJob!();
+        await rebuildJob!(CancellationToken.None);
 
         generationService.Verify(service => service.GenerateAsync(It.Is<string[]>(args =>
-            args.Contains("--strip-channel-numbers"))), Times.Once);
+            args.Contains("--strip-channel-numbers")), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -192,16 +192,16 @@ public class GuideControllerTests : IDisposable
             Path.Combine(_tempDir, "settings.json"),
             "{\"channel\":{\"useChannelNamesInsteadOfNumericIds\":true}}");
 
-        Func<Task>? rebuildJob = null;
+        Func<CancellationToken, Task>? rebuildJob = null;
         var backgroundJobs = new Mock<IBackgroundJobService>();
         backgroundJobs
-            .Setup(service => service.TryStartJobAsync(It.IsAny<Func<Task>>(), "EPG Rebuild"))
-            .Callback<Func<Task>, string>((job, _) => rebuildJob = job)
+            .Setup(service => service.TryStartJobAsync(It.IsAny<Func<CancellationToken, Task>>(), "EPG Rebuild"))
+            .Callback<Func<CancellationToken, Task>, string>((job, _) => rebuildJob = job)
             .ReturnsAsync((true, "EPG Rebuild started successfully"));
 
         var generationService = new Mock<IEpgGenerationService>();
         generationService
-            .Setup(service => service.GenerateAsync(It.IsAny<string[]>()))
+            .Setup(service => service.GenerateAsync(It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new EpgGenerationResult { Success = true, Message = "ok" });
 
         var result = await CreateController(generationService: generationService, backgroundJobs: backgroundJobs)
@@ -209,10 +209,10 @@ public class GuideControllerTests : IDisposable
 
         result.Should().BeOfType<AcceptedResult>();
         rebuildJob.Should().NotBeNull();
-        await rebuildJob!();
+        await rebuildJob!(CancellationToken.None);
 
         generationService.Verify(service => service.GenerateAsync(It.Is<string[]>(args =>
-            args.Contains("--strip-channel-numbers"))), Times.Once);
+            args.Contains("--strip-channel-numbers")), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -228,16 +228,16 @@ public class GuideControllerTests : IDisposable
             Path.Combine(_tempDir, "settings.json"),
             "{\"channel\":{\"sortChannelsByIdThenDisplayName\":false}}");
 
-        Func<Task>? rebuildJob = null;
+        Func<CancellationToken, Task>? rebuildJob = null;
         var backgroundJobs = new Mock<IBackgroundJobService>();
         backgroundJobs
-            .Setup(service => service.TryStartJobAsync(It.IsAny<Func<Task>>(), "EPG Rebuild"))
-            .Callback<Func<Task>, string>((job, _) => rebuildJob = job)
+            .Setup(service => service.TryStartJobAsync(It.IsAny<Func<CancellationToken, Task>>(), "EPG Rebuild"))
+            .Callback<Func<CancellationToken, Task>, string>((job, _) => rebuildJob = job)
             .ReturnsAsync((true, "EPG Rebuild started successfully"));
 
         var generationService = new Mock<IEpgGenerationService>();
         generationService
-            .Setup(service => service.GenerateAsync(It.IsAny<string[]>()))
+            .Setup(service => service.GenerateAsync(It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new EpgGenerationResult { Success = true, Message = "ok" });
 
         var result = await CreateController(generationService: generationService, backgroundJobs: backgroundJobs)
@@ -245,10 +245,10 @@ public class GuideControllerTests : IDisposable
 
         result.Should().BeOfType<AcceptedResult>();
         rebuildJob.Should().NotBeNull();
-        await rebuildJob!();
+        await rebuildJob!(CancellationToken.None);
 
         generationService.Verify(service => service.GenerateAsync(It.Is<string[]>(args =>
-            args.Contains("--preserve-channel-order"))), Times.Once);
+            args.Contains("--preserve-channel-order")), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -263,7 +263,7 @@ public class GuideControllerTests : IDisposable
 
         var backgroundJobs = new Mock<IBackgroundJobService>();
         backgroundJobs
-            .Setup(service => service.TryStartJobAsync(It.IsAny<Func<Task>>(), "EPG Rebuild"))
+            .Setup(service => service.TryStartJobAsync(It.IsAny<Func<CancellationToken, Task>>(), "EPG Rebuild"))
             .ThrowsAsync(new InvalidOperationException("boom"));
 
         var result = await CreateController(backgroundJobs: backgroundJobs).RebuildGuide();

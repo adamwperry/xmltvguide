@@ -359,8 +359,10 @@ public class ConfigController : ControllerBase
         foreach (var line in lines)
         {
             var url = line.Trim();
-            if (!string.IsNullOrEmpty(url) &&
-                !url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            if (string.IsNullOrEmpty(url) || url.StartsWith("#", StringComparison.Ordinal))
+                continue;
+
+            if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
                 !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             {
                 invalidUrls.Add(url);

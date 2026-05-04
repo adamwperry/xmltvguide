@@ -23,28 +23,28 @@ public abstract class DataFetcherBase : IDataFetcher
     /// </summary>
     /// <param name="url">The URL to fetch data from.</param>
     /// <returns>Returns the content of the response as a string.</returns>
-    public abstract Task<string> FetchDataAsync(string url);
+    public abstract Task<string> FetchDataAsync(string url, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Fetches data from a list of URLs asynchronously.
     /// </summary>
     /// <param name="urls"><see cref="List{string}"/> of URLs to fetch data from.</param>
     /// <returns><see cref="Task{List{string}}"/> containing the fetched data from each URL.</returns>
-    public abstract Task<List<string>> FetchDataAsync(List<string> urls);
+    public abstract Task<List<string>> FetchDataAsync(List<string> urls, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Fetches data from a single URL with detailed error reporting.
     /// </summary>
     /// <param name="url">The URL to fetch data from.</param>
     /// <returns>A FetchResult containing data and detailed error info if fetch failed.</returns>
-    public abstract Task<FetchResult> FetchDataWithResultAsync(string url);
+    public abstract Task<FetchResult> FetchDataWithResultAsync(string url, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Fetches data from multiple URLs with detailed error reporting for each.
     /// </summary>
     /// <param name="urls">List of URLs to fetch data from.</param>
     /// <returns>A list of FetchResult objects, one per URL, with data and detailed error info.</returns>
-    public abstract Task<List<FetchResult>> FetchDataWithResultsAsync(List<string> urls);
+    public abstract Task<List<FetchResult>> FetchDataWithResultsAsync(List<string> urls, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Initializes an HttpClient with default headers.

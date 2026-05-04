@@ -125,6 +125,28 @@ public class ConfigControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveEpgUrls_AllowsCommentsAndBlankLines()
+    {
+        using var env = CreateEnvironmentScope();
+        var controller = CreateController();
+        var epgUrlsPath = Path.Combine(_tempDir, "epg_urls.txt");
+
+        var content = """
+        # Primary EPG source
+        https://one.example.com
+
+           # Backup EPG source
+        https://two.example.com
+        """;
+
+        var result = await controller.SaveEpgUrls(new SaveFileRequest { Content = content });
+
+        result.Should().BeOfType<OkObjectResult>();
+        File.ReadAllText(epgUrlsPath).Should().Contain("# Primary EPG source");
+        File.ReadAllText(epgUrlsPath).Should().Contain("https://two.example.com");
+    }
+
+    [Fact]
     public async Task ExportBackup_ReturnsEpgUrlsAndChannelMap()
     {
         using var env = CreateEnvironmentScope();

@@ -4,7 +4,7 @@ using xmlTVGuide.Services.ArgumentParser;
 
 public interface IEpgGenerationService
 {
-    Task<EpgGenerationResult> GenerateAsync(string[] args);
+    Task<EpgGenerationResult> GenerateAsync(string[] args, CancellationToken cancellationToken = default);
 }
 
 public class EpgGenerationResult
@@ -29,7 +29,7 @@ public class EpgGenerationService : IEpgGenerationService
         _statusTracker = statusTracker;
     }
 
-    public async Task<EpgGenerationResult> GenerateAsync(string[] args)
+    public async Task<EpgGenerationResult> GenerateAsync(string[] args, CancellationToken cancellationToken = default)
     {
         var startTime = DateTime.UtcNow;
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
@@ -41,6 +41,8 @@ public class EpgGenerationService : IEpgGenerationService
 
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             _logger.LogInformation("Starting XMLTV Guide Generator...");
             _logger.LogInformation($"EPG_URL_FILES: {Environment.GetEnvironmentVariable("EPG_URL_FILES")}");
             _logger.LogInformation($"CHANNEL_MAP_PATH: {Environment.GetEnvironmentVariable("CHANNEL_MAP_PATH")}");
@@ -60,6 +62,7 @@ public class EpgGenerationService : IEpgGenerationService
             }
 
             var arguments = argumentParser.ParseArguments(args);
+            cancellationToken.ThrowIfCancellationRequested();
 
             if (arguments.HelpSet)
             {
@@ -127,7 +130,8 @@ public class EpgGenerationService : IEpgGenerationService
             }
 
             // Fetch data with detailed error tracking per source
-            var fetchResults = await dataFetcher.FetchDataWithResultsAsync(arguments.Urls);
+            var fetchResults = await dataFetcher.FetchDataWithResultsAsync(arguments.Urls, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
             // Track successes and failures
             var successfulData = new List<string>();
@@ -204,6 +208,7 @@ public class EpgGenerationService : IEpgGenerationService
                 arguments.OutputPath,
                 arguments.StripChannelNumbers,
                 arguments.SortChannelsByIdThenDisplayName);
+            cancellationToken.ThrowIfCancellationRequested();
 
             // Update status with file info
             var outputPath = arguments.OutputPath;
@@ -226,6 +231,23 @@ public class EpgGenerationService : IEpgGenerationService
 
             _statusTracker.UpdateStatus(status);
             return result;
+        }
+        catch (OperationCanceledException ex)
+        {
+            stopwatch.Stop();
+            status.LastRunDurationMs = stopwatch.ElapsedMilliseconds;
+            status.LastRunSuccess = false;
+            status.LastRunMessage = "EPG generation was cancelled.";
+            status.HealthStatus = "cancelled";
+            status.ErrorDetails.Add(status.LastRunMessage);
+            _statusTracker.UpdateStatus(status);
+            return new EpgGenerationResult
+            {
+                Success = false,
+                Message = status.LastRunMessage,
+                Exception = ex,
+                ErrorDetails = new() { status.LastRunMessage }
+            };
         }
         catch (Exception ex)
         {
