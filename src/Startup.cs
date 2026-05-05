@@ -19,11 +19,12 @@ public class Startup
     {
         // Add web services
         services.AddControllers();
+        var allowedCorsOrigins = GetAllowedCorsOrigins();
         services.AddCors(options =>
         {
             options.AddDefaultPolicy(builder =>
             {
-                builder.WithOrigins(GetAllowedCorsOrigins())
+                builder.WithOrigins(allowedCorsOrigins)
                        .AllowAnyMethod()
                        .AllowAnyHeader()
                        .AllowCredentials();
@@ -122,11 +123,33 @@ public class Startup
         var configuredOrigins = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
         if (!string.IsNullOrWhiteSpace(configuredOrigins))
         {
-            return configuredOrigins
+            var parsedOrigins = configuredOrigins
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(origin => Uri.TryCreate(origin, UriKind.Absolute, out _))
+                .ToArray();
+
+            var invalidOrigins = parsedOrigins
+                .Where(origin => !Uri.TryCreate(origin, UriKind.Absolute, out var uri) ||
+                    string.IsNullOrWhiteSpace(uri.Scheme) ||
+                    string.IsNullOrWhiteSpace(uri.Host))
+                .ToArray();
+
+            if (invalidOrigins.Length > 0)
+            {
+                throw new InvalidOperationException(
+                    $"CORS_ALLOWED_ORIGINS contains invalid origin value(s): {string.Join(", ", invalidOrigins)}");
+            }
+
+            var validOrigins = parsedOrigins
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
+
+            if (validOrigins.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    "CORS_ALLOWED_ORIGINS was provided but did not contain any valid origins.");
+            }
+
+            return validOrigins;
         }
 
         return new[]

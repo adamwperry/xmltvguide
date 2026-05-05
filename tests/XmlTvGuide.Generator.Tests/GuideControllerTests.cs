@@ -147,6 +147,44 @@ public class GuideControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task rebuild_logs_manual_success_to_cron_history_when_job_completes()
+    {
+        var epgPath = Path.Combine(_tempDir, "epg_urls.txt");
+        var channelMapPath = Path.Combine(_tempDir, "ChannelMap.json");
+        var outputPath = Path.Combine(_tempDir, "guide.xml");
+        File.WriteAllText(epgPath, "https://example.com/epg");
+        File.WriteAllText(channelMapPath, "{\"channels\":[]}");
+        SetPaths(outputPath, channelMapPath, epgPath);
+
+        Func<CancellationToken, Task>? rebuildJob = null;
+        var backgroundJobs = new Mock<IBackgroundJobService>();
+        backgroundJobs
+            .Setup(service => service.TryStartJobAsync(It.IsAny<Func<CancellationToken, Task>>(), "EPG Rebuild"))
+            .Callback<Func<CancellationToken, Task>, string>((job, _) => rebuildJob = job)
+            .ReturnsAsync((true, "EPG Rebuild started successfully"));
+
+        var generationService = new Mock<IEpgGenerationService>();
+        generationService
+            .Setup(service => service.GenerateAsync(It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EpgGenerationResult { Success = true, Message = "ok" });
+
+        var cronLogger = new Mock<ICronLogger>();
+        var controller = CreateController(cronLogger: cronLogger, generationService: generationService, backgroundJobs: backgroundJobs);
+
+        var result = await controller.RebuildGuide();
+
+        result.Should().BeOfType<AcceptedResult>();
+        rebuildJob.Should().NotBeNull();
+        await rebuildJob!(CancellationToken.None);
+
+        cronLogger.Verify(logger => logger.LogCronRun(
+            "Manual EPG rebuild completed successfully",
+            It.IsAny<DateTime>(),
+            true,
+            null), Times.Once);
+    }
+
+    [Fact]
     public async Task rebuild_passes_strip_channel_numbers_option_to_generation_service()
     {
         var epgPath = Path.Combine(_tempDir, "epg_urls.txt");
@@ -270,6 +308,50 @@ public class GuideControllerTests : IDisposable
         var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
 
         objectResult.StatusCode.Should().Be(500);
+    }
+
+    [Fact]
+    public async Task rebuild_logs_manual_failure_to_cron_history_when_job_fails()
+    {
+        var epgPath = Path.Combine(_tempDir, "epg_urls.txt");
+        var channelMapPath = Path.Combine(_tempDir, "ChannelMap.json");
+        var outputPath = Path.Combine(_tempDir, "guide.xml");
+        File.WriteAllText(epgPath, "https://example.com/epg");
+        File.WriteAllText(channelMapPath, "{\"channels\":[]}");
+        SetPaths(outputPath, channelMapPath, epgPath);
+
+        Func<CancellationToken, Task>? rebuildJob = null;
+        var backgroundJobs = new Mock<IBackgroundJobService>();
+        backgroundJobs
+            .Setup(service => service.TryStartJobAsync(It.IsAny<Func<CancellationToken, Task>>(), "EPG Rebuild"))
+            .Callback<Func<CancellationToken, Task>, string>((job, _) => rebuildJob = job)
+            .ReturnsAsync((true, "EPG Rebuild started successfully"));
+
+        var generationService = new Mock<IEpgGenerationService>();
+        generationService
+            .Setup(service => service.GenerateAsync(It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EpgGenerationResult
+            {
+                Success = false,
+                Message = "boom",
+                Exception = new InvalidOperationException("boom")
+            });
+
+        var cronLogger = new Mock<ICronLogger>();
+        var controller = CreateController(cronLogger: cronLogger, generationService: generationService, backgroundJobs: backgroundJobs);
+
+        var result = await controller.RebuildGuide();
+
+        result.Should().BeOfType<AcceptedResult>();
+        rebuildJob.Should().NotBeNull();
+        await FluentActions.Invoking(() => rebuildJob!(CancellationToken.None))
+            .Should().ThrowAsync<Exception>();
+
+        cronLogger.Verify(logger => logger.LogCronRun(
+            "Manual EPG rebuild failed",
+            It.IsAny<DateTime>(),
+            false,
+            It.Is<string>(message => message.Contains("boom"))), Times.Once);
     }
 
     [Fact]

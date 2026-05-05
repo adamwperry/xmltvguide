@@ -85,6 +85,7 @@ public class GuideController : ControllerBase
             // Attempt to start the rebuild job
             async Task RunRebuild(CancellationToken cancellationToken)
             {
+                var completedAtUtc = DateTime.UtcNow;
                 try
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -116,9 +117,20 @@ public class GuideController : ControllerBase
 
                         throw new Exception(result.Message, result.Exception);
                     }
+
+                    completedAtUtc = DateTime.UtcNow;
+                    _cronLogger.LogCronRun("Manual EPG rebuild completed successfully", completedAtUtc, true);
+                }
+                catch (OperationCanceledException)
+                {
+                    completedAtUtc = DateTime.UtcNow;
+                    _cronLogger.LogCronRun("Manual EPG rebuild was cancelled", completedAtUtc, false, "Job was cancelled by user");
+                    throw;
                 }
                 catch (Exception ex)
                 {
+                    completedAtUtc = DateTime.UtcNow;
+                    _cronLogger.LogCronRun("Manual EPG rebuild failed", completedAtUtc, false, ex.Message);
                     Console.WriteLine($"EPG generation error: {ex.Message}");
                     throw;
                 }

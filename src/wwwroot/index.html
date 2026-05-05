@@ -1177,7 +1177,11 @@
                 })}`
                 : 'No cron runs logged yet';
 
-            const indicator = schedule.lastRunSuccess === false ? 'error' : 'success';
+            const indicator = schedule.lastRunSuccess === false
+                ? 'error'
+                : schedule.lastRunAt
+                    ? 'success'
+                    : 'warning';
             statusElement.innerHTML = `
                 <span class="indicator ${indicator}"></span>
                 ${escapeHtml(schedule.expression || 'Cron enabled')} • ${escapeHtml(lastRunText)}

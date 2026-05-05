@@ -189,6 +189,62 @@ public class ConfigControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task RestoreBackup_WithInvalidSettings_DoesNotOverwriteExistingFiles()
+    {
+        using var env = CreateEnvironmentScope();
+        var controller = CreateController();
+        var epgUrlsPath = Path.Combine(_tempDir, "epg_urls.txt");
+        var channelMapPath = Path.Combine(_tempDir, "ChannelMap.json");
+        var settingsPath = Path.Combine(_tempDir, "settings.json");
+
+        File.WriteAllText(epgUrlsPath, "https://existing.example.com\n");
+        File.WriteAllText(channelMapPath, "{\"channels\":[]}");
+        File.WriteAllText(settingsPath, "{\"channel\":{\"useChannelNamesInsteadOfNumericIds\":false}}");
+
+        var result = await controller.RestoreBackup(new ConfigBackup
+        {
+            EpgUrls = new ConfigBackupFile { Content = "https://restored.example.com\r\n" },
+            ChannelMap = new ConfigBackupFile { Content = "{\"channels\":[{\"channel\":{\"name\":\"ABC\",\"channelId\":\"123\"}}]}" },
+            Settings = new ConfigBackupFile { Content = "{\"channel\":" }
+        });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        File.ReadAllText(epgUrlsPath).Should().Be("https://existing.example.com\n");
+        File.ReadAllText(channelMapPath).Should().Be("{\"channels\":[]}");
+        File.ReadAllText(settingsPath).Should().Contain("\"useChannelNamesInsteadOfNumericIds\":false");
+    }
+
+    [Fact]
+    public async Task RestoreBackup_RollsBackPreviouslyWrittenFiles_WhenALaterWriteFails()
+    {
+        var blockedSettingsPath = Path.Combine(_tempDir, "settings-blocked");
+        Directory.CreateDirectory(blockedSettingsPath);
+
+        using var env = CreateEnvironmentScope(new Dictionary<string, string?>
+        {
+            ["SETTINGS_PATH"] = blockedSettingsPath
+        });
+
+        var controller = CreateController();
+        var epgUrlsPath = Path.Combine(_tempDir, "epg_urls.txt");
+        var channelMapPath = Path.Combine(_tempDir, "ChannelMap.json");
+
+        File.WriteAllText(epgUrlsPath, "https://existing.example.com\n");
+        File.WriteAllText(channelMapPath, "{\"channels\":[]}");
+
+        var result = await controller.RestoreBackup(new ConfigBackup
+        {
+            EpgUrls = new ConfigBackupFile { Content = "https://restored.example.com\r\n" },
+            ChannelMap = new ConfigBackupFile { Content = "{\"channels\":[{\"channel\":{\"name\":\"ABC\",\"channelId\":\"123\"}}]}" },
+            Settings = new ConfigBackupFile { Content = "{\"channel\":{\"useChannelNamesInsteadOfNumericIds\":true}}" }
+        });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        File.ReadAllText(epgUrlsPath).Should().Be("https://existing.example.com\n");
+        File.ReadAllText(channelMapPath).Should().Be("{\"channels\":[]}");
+    }
+
+    [Fact]
     public async Task GetSettings_WhenFileIsMissing_ReturnsDefaultSettings()
     {
         using var env = CreateEnvironmentScope();

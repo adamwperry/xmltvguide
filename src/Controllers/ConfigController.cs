@@ -140,18 +140,29 @@ public class ConfigController : ControllerBase
                 return BadRequest(new { error = "Invalid URLs found - must start with http:// or https://", invalidUrls });
 
             var analysis = _channelMapLoader.AnalyzeChannelMapContent(request.ChannelMap.Content);
+            AppSettings? restoredSettings = null;
 
-            Directory.CreateDirectory(Path.GetDirectoryName(_epgUrlsPath) ?? Directory.GetCurrentDirectory());
-            Directory.CreateDirectory(Path.GetDirectoryName(_channelMapPath) ?? Directory.GetCurrentDirectory());
-
-            await IOFile.WriteAllTextAsync(_epgUrlsPath, request.EpgUrls.Content.Replace("\r\n", "\n"));
-            await IOFile.WriteAllTextAsync(_channelMapPath, request.ChannelMap.Content.Replace("\r\n", "\n"));
             if (request.Settings is not null)
             {
-                var settings = JsonSerializer.Deserialize<AppSettings>(request.Settings.Content, JsonOptions)
+                restoredSettings = JsonSerializer.Deserialize<AppSettings>(request.Settings.Content, JsonOptions)
                     ?? new AppSettings();
-                await _appSettingsService.SaveAsync(settings);
+                restoredSettings.Channel ??= new ChannelOutputSettings();
             }
+
+            var pendingWrites = new List<PendingFileWrite>
+            {
+                new(_epgUrlsPath, request.EpgUrls.Content.Replace("\r\n", "\n")),
+                new(_channelMapPath, request.ChannelMap.Content.Replace("\r\n", "\n"))
+            };
+
+            if (restoredSettings is not null)
+            {
+                pendingWrites.Add(new PendingFileWrite(
+                    _appSettingsService.SettingsPath,
+                    JsonSerializer.Serialize(restoredSettings, JsonOptions) + "\n"));
+            }
+
+            await WriteFilesWithRollbackAsync(pendingWrites);
 
             return Ok(new
             {
@@ -371,6 +382,50 @@ public class ConfigController : ControllerBase
 
         return invalidUrls;
     }
+
+    private static async Task WriteFilesWithRollbackAsync(IReadOnlyList<PendingFileWrite> pendingWrites)
+    {
+        var snapshots = new List<FileSnapshot>(pendingWrites.Count);
+
+        foreach (var pendingWrite in pendingWrites)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(pendingWrite.Path) ?? Directory.GetCurrentDirectory());
+            var fileExists = IOFile.Exists(pendingWrite.Path);
+            snapshots.Add(new FileSnapshot(
+                pendingWrite.Path,
+                fileExists,
+                fileExists ? await IOFile.ReadAllTextAsync(pendingWrite.Path) : null));
+        }
+
+        try
+        {
+            foreach (var pendingWrite in pendingWrites)
+                await IOFile.WriteAllTextAsync(pendingWrite.Path, pendingWrite.Content);
+        }
+        catch
+        {
+            await RollbackWritesAsync(snapshots);
+            throw;
+        }
+    }
+
+    private static async Task RollbackWritesAsync(IEnumerable<FileSnapshot> snapshots)
+    {
+        foreach (var snapshot in snapshots.Reverse())
+        {
+            try
+            {
+                if (snapshot.Existed)
+                    await IOFile.WriteAllTextAsync(snapshot.Path, snapshot.OriginalContent ?? "");
+                else if (IOFile.Exists(snapshot.Path))
+                    IOFile.Delete(snapshot.Path);
+            }
+            catch
+            {
+                // Best effort rollback to avoid masking the original restore error.
+            }
+        }
+    }
 }
 
 public class TestSourceRequest
@@ -403,3 +458,6 @@ public class ConfigBackupFile
     public string Path { get; set; } = "";
     public string Content { get; set; } = "";
 }
+
+internal sealed record PendingFileWrite(string Path, string Content);
+internal sealed record FileSnapshot(string Path, bool Existed, string? OriginalContent);

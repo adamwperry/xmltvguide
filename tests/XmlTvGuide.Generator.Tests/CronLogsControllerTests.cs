@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using xmlTVGuide.Controllers;
 using xmlTVGuide.Models;
+using xmlTVGuide.Services.BuildJobLogger;
 using xmlTVGuide.Services.CronLogger;
 using Xunit;
 
@@ -34,6 +35,7 @@ public class CronLogsControllerTests : IDisposable
         Environment.SetEnvironmentVariable("CRONTAB_PATH", crontabPath);
 
         var cronLogger = new Mock<ICronLogger>();
+        var buildJobLogger = new Mock<IBuildJobLogger>();
         cronLogger
             .Setup(logger => logger.GetLastLogs(1))
             .Returns(new List<CronLogEntry>
@@ -41,7 +43,7 @@ public class CronLogsControllerTests : IDisposable
                 new() { Timestamp = DateTime.UtcNow.AddMinutes(-5), Success = true, Message = "ok" }
             });
 
-        var controller = new CronLogsController(cronLogger.Object);
+        var controller = new CronLogsController(cronLogger.Object, buildJobLogger.Object);
 
         var result = controller.GetSchedule();
 
@@ -56,7 +58,7 @@ public class CronLogsControllerTests : IDisposable
     public void GetSchedule_ReturnsDisabledWhenCrontabIsMissing()
     {
         Environment.SetEnvironmentVariable("CRONTAB_PATH", Path.Combine(_tempDir, "missing-crontab.txt"));
-        var controller = new CronLogsController(new Mock<ICronLogger>().Object);
+        var controller = new CronLogsController(new Mock<ICronLogger>().Object, new Mock<IBuildJobLogger>().Object);
 
         var result = controller.GetSchedule();
 
@@ -107,12 +109,85 @@ public class CronLogsControllerTests : IDisposable
             It.IsAny<string?>()), Times.Never);
     }
 
+    [Fact]
+    public void GetSchedule_UsesMostRecentManualRebuildWhenNewerThanCronRun()
+    {
+        var crontabPath = Path.Combine(_tempDir, "crontab.txt");
+        File.WriteAllText(crontabPath, "*/20 * * * * /app/cron-wrapper.sh >> /var/log/cron.log 2>&1\n");
+        Environment.SetEnvironmentVariable("CRONTAB_PATH", crontabPath);
+
+        var cronLogger = new Mock<ICronLogger>();
+        cronLogger
+            .Setup(logger => logger.GetLastLogs(1))
+            .Returns(new List<CronLogEntry>
+            {
+                new() { Timestamp = DateTime.UtcNow.AddMinutes(-30), Success = true, Message = "Cron ok" }
+            });
+
+        var buildJobLogger = new Mock<IBuildJobLogger>();
+        buildJobLogger
+            .Setup(logger => logger.GetLastJobs(1))
+            .Returns(new List<BuildJobEntry>
+            {
+                new()
+                {
+                    StartTime = DateTime.UtcNow.AddMinutes(-5),
+                    EndTime = DateTime.UtcNow.AddMinutes(-4),
+                    Success = false,
+                    Message = "Manual rebuild failed"
+                }
+            });
+
+        var controller = new CronLogsController(cronLogger.Object, buildJobLogger.Object);
+
+        var result = controller.GetSchedule();
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var json = JsonSerializer.Serialize(ok.Value);
+        json.Should().Contain("\"lastRunSuccess\":false");
+        json.Should().Contain("Manual rebuild failed");
+    }
+
+    [Fact]
+    public void GetSchedule_ComputesNextRunForFixedDailyCron()
+    {
+        var crontabPath = Path.Combine(_tempDir, "crontab.txt");
+        File.WriteAllText(crontabPath, "0 3 * * * /app/cron-wrapper.sh >> /var/log/cron.log 2>&1\n");
+        Environment.SetEnvironmentVariable("CRONTAB_PATH", crontabPath);
+
+        var controller = new CronLogsController(new Mock<ICronLogger>().Object, new Mock<IBuildJobLogger>().Object);
+
+        var result = controller.GetSchedule();
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var json = JsonSerializer.Serialize(ok.Value);
+        json.Should().Contain("\"expression\":\"0 3 * * *\"");
+        json.Should().NotContain("\"nextRunUtc\":null");
+    }
+
+    [Fact]
+    public void GetSchedule_ComputesNextRunForSparseAnnualCron()
+    {
+        var crontabPath = Path.Combine(_tempDir, "crontab.txt");
+        File.WriteAllText(crontabPath, "0 0 1 1 * /app/cron-wrapper.sh >> /var/log/cron.log 2>&1\n");
+        Environment.SetEnvironmentVariable("CRONTAB_PATH", crontabPath);
+
+        var controller = new CronLogsController(new Mock<ICronLogger>().Object, new Mock<IBuildJobLogger>().Object);
+
+        var result = controller.GetSchedule();
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var json = JsonSerializer.Serialize(ok.Value);
+        json.Should().Contain("\"expression\":\"0 0 1 1 *\"");
+        json.Should().NotContain("\"nextRunUtc\":null");
+    }
+
     private static CronLogsController CreateController(Mock<ICronLogger> cronLogger, string remoteIp)
     {
         var context = new DefaultHttpContext();
         context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse(remoteIp);
 
-        return new CronLogsController(cronLogger.Object)
+        return new CronLogsController(cronLogger.Object, new Mock<IBuildJobLogger>().Object)
         {
             ControllerContext = new ControllerContext
             {

@@ -29,6 +29,7 @@ public class StartupProgramTests : IDisposable
         ["PORT"] = Environment.GetEnvironmentVariable("PORT"),
         ["DOTNET_RUNNING_IN_CONTAINER"] = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"),
         ["ASPNETCORE_ENVIRONMENT"] = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
+        ["CORS_ALLOWED_ORIGINS"] = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS"),
         ["AUTH_USERNAME"] = Environment.GetEnvironmentVariable("AUTH_USERNAME"),
         ["AUTH_PASSWORD"] = Environment.GetEnvironmentVariable("AUTH_PASSWORD"),
         ["AUTH_EMAIL"] = Environment.GetEnvironmentVariable("AUTH_EMAIL")
@@ -108,6 +109,23 @@ public class StartupProgramTests : IDisposable
         var env = host.Services.GetRequiredService<IWebHostEnvironment>();
 
         env.WebRootPath.Should().Be(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"));
+    }
+
+    [Fact]
+    public void configure_services_throws_clear_error_for_invalid_cors_origins()
+    {
+        Environment.SetEnvironmentVariable("CORS_ALLOWED_ORIGINS", "not-a-url,still-bad");
+        Environment.SetEnvironmentVariable("PORT", "5012");
+        Environment.SetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER", "false");
+
+        var act = () =>
+        {
+            using var host = Program.CreateHostBuilder(Array.Empty<string>()).Build();
+        };
+
+        act.Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*CORS_ALLOWED_ORIGINS contains invalid origin value(s)*");
     }
 
     [Fact]

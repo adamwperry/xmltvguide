@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using System.Net;
 using xmlTVGuide.Models;
 using xmlTVGuide.Services.CronLogger;
+using xmlTVGuide.Services.BuildJobLogger;
 using IOFile = System.IO.File;
 
 namespace xmlTVGuide.Controllers;
@@ -13,10 +14,12 @@ namespace xmlTVGuide.Controllers;
 public class CronLogsController : ControllerBase
 {
     private readonly ICronLogger _cronLogger;
+    private readonly IBuildJobLogger _buildJobLogger;
 
-    public CronLogsController(ICronLogger cronLogger)
+    public CronLogsController(ICronLogger cronLogger, IBuildJobLogger buildJobLogger)
     {
         _cronLogger = cronLogger;
+        _buildJobLogger = buildJobLogger;
     }
 
     [HttpGet]
@@ -51,7 +54,11 @@ public class CronLogsController : ControllerBase
                 ? null
                 : string.Join(" ", scheduleLine.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(5));
 
-            var lastRun = (_cronLogger.GetLastLogs(1) ?? new List<CronLogEntry>()).FirstOrDefault();
+            var cronRun = (_cronLogger.GetLastLogs(1) ?? new List<CronLogEntry>()).FirstOrDefault();
+            var rebuildRun = (_buildJobLogger.GetLastJobs(1) ?? new List<BuildJobEntry>()).FirstOrDefault();
+            var lastRunAt = GetMostRecentRunAt(cronRun, rebuildRun);
+            var lastRunSuccess = GetMostRecentRunSuccess(cronRun, rebuildRun);
+            var lastRunMessage = GetMostRecentRunMessage(cronRun, rebuildRun);
 
             return Ok(new
             {
@@ -60,9 +67,9 @@ public class CronLogsController : ControllerBase
                 expression,
                 scheduleLine,
                 nextRunUtc = expression is null ? null : TryGetNextRunUtc(expression, DateTime.UtcNow),
-                lastRunAt = lastRun?.Timestamp,
-                lastRunSuccess = lastRun?.Success,
-                lastRunMessage = lastRun?.Message
+                lastRunAt,
+                lastRunSuccess,
+                lastRunMessage
             });
         }
         catch (Exception ex)
@@ -105,20 +112,64 @@ public class CronLogsController : ControllerBase
         if (parts.Length != 5)
             return null;
 
-        var minutePart = parts[0];
-        if (!minutePart.StartsWith("*/", StringComparison.Ordinal) ||
-            !int.TryParse(minutePart[2..], out var intervalMinutes) ||
-            intervalMinutes <= 0)
-        {
+        var minuteMatcher = CronFieldMatcher.TryParse(parts[0], 0, 59);
+        var hourMatcher = CronFieldMatcher.TryParse(parts[1], 0, 23);
+        var dayOfMonthMatcher = CronFieldMatcher.TryParse(parts[2], 1, 31);
+        var monthMatcher = CronFieldMatcher.TryParse(parts[3], 1, 12);
+        var dayOfWeekMatcher = CronFieldMatcher.TryParse(parts[4], 0, 7);
+
+        if (minuteMatcher is null || hourMatcher is null || dayOfMonthMatcher is null || monthMatcher is null || dayOfWeekMatcher is null)
             return null;
+
+        var cursor = new DateTime(nowUtc.Year, nowUtc.Month, nowUtc.Day, nowUtc.Hour, nowUtc.Minute, 0, DateTimeKind.Utc)
+            .AddMinutes(1);
+        var maxYear = cursor.Year + 5;
+
+        while (cursor.Year <= maxYear)
+        {
+            if (!monthMatcher.TryGetNextOrSame(cursor.Month, out var nextMonth))
+            {
+                cursor = new DateTime(cursor.Year + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+                continue;
+            }
+
+            if (nextMonth != cursor.Month)
+            {
+                cursor = new DateTime(cursor.Year, nextMonth, 1, 0, 0, 0, DateTimeKind.Utc);
+                continue;
+            }
+
+            if (!IsDayMatch(cursor, dayOfMonthMatcher, dayOfWeekMatcher))
+            {
+                cursor = cursor.Date.AddDays(1);
+                continue;
+            }
+
+            if (!hourMatcher.TryGetNextOrSame(cursor.Hour, out var nextHour))
+            {
+                cursor = cursor.Date.AddDays(1);
+                continue;
+            }
+
+            if (nextHour != cursor.Hour)
+            {
+                cursor = new DateTime(cursor.Year, cursor.Month, cursor.Day, nextHour, 0, 0, DateTimeKind.Utc);
+                continue;
+            }
+
+            if (!minuteMatcher.TryGetNextOrSame(cursor.Minute, out var nextMinute))
+            {
+                cursor = new DateTime(cursor.Year, cursor.Month, cursor.Day, cursor.Hour, 0, 0, DateTimeKind.Utc).AddHours(1);
+                continue;
+            }
+
+            if (nextMinute != cursor.Minute)
+                return new DateTime(cursor.Year, cursor.Month, cursor.Day, cursor.Hour, nextMinute, 0, DateTimeKind.Utc);
+
+            return cursor;
         }
 
-        var startOfHour = new DateTime(nowUtc.Year, nowUtc.Month, nowUtc.Day, nowUtc.Hour, 0, 0, DateTimeKind.Utc);
-        var nextMinute = ((nowUtc.Minute / intervalMinutes) + 1) * intervalMinutes;
-
-        return nextMinute >= 60
-            ? startOfHour.AddHours(1)
-            : startOfHour.AddMinutes(nextMinute);
+        return null;
     }
 
     [HttpPost("test")]
@@ -182,4 +233,185 @@ public class CronLogsController : ControllerBase
         var remoteIp = HttpContext.Connection.RemoteIpAddress;
         return remoteIp is not null && IPAddress.IsLoopback(remoteIp);
     }
+
+    private static DateTime? GetMostRecentRunAt(CronLogEntry? cronRun, BuildJobEntry? rebuildRun)
+    {
+        if (cronRun is null)
+            return rebuildRun?.EndTime ?? rebuildRun?.StartTime;
+
+        var rebuildTimestamp = rebuildRun?.EndTime ?? rebuildRun?.StartTime;
+        if (rebuildTimestamp is null || cronRun.Timestamp >= rebuildTimestamp.Value)
+            return cronRun.Timestamp;
+
+        return rebuildTimestamp;
+    }
+
+    private static bool? GetMostRecentRunSuccess(CronLogEntry? cronRun, BuildJobEntry? rebuildRun)
+    {
+        if (cronRun is null)
+            return rebuildRun?.Success;
+
+        var rebuildTimestamp = rebuildRun?.EndTime ?? rebuildRun?.StartTime;
+        if (rebuildTimestamp is null || cronRun.Timestamp >= rebuildTimestamp.Value)
+            return cronRun.Success;
+
+        return rebuildRun?.Success;
+    }
+
+    private static string? GetMostRecentRunMessage(CronLogEntry? cronRun, BuildJobEntry? rebuildRun)
+    {
+        if (cronRun is null)
+            return rebuildRun?.Message;
+
+        var rebuildTimestamp = rebuildRun?.EndTime ?? rebuildRun?.StartTime;
+        if (rebuildTimestamp is null || cronRun.Timestamp >= rebuildTimestamp.Value)
+            return cronRun.Message;
+
+        return rebuildRun?.Message;
+    }
+
+    private static bool IsDayMatch(DateTime timestampUtc, CronFieldMatcher dayOfMonthMatcher, CronFieldMatcher dayOfWeekMatcher)
+    {
+        var dayOfMonthWildcard = dayOfMonthMatcher.IsWildcard;
+        var dayOfWeekWildcard = dayOfWeekMatcher.IsWildcard;
+
+        var dayOfMonthMatch = dayOfMonthMatcher.IsMatch(timestampUtc.Day);
+        var dayOfWeekValue = timestampUtc.DayOfWeek == DayOfWeek.Sunday ? 0 : (int)timestampUtc.DayOfWeek;
+        var dayOfWeekMatch = dayOfWeekMatcher.IsMatch(dayOfWeekValue);
+
+        if (dayOfMonthWildcard && dayOfWeekWildcard)
+            return true;
+
+        if (dayOfMonthWildcard)
+            return dayOfWeekMatch;
+
+        if (dayOfWeekWildcard)
+            return dayOfMonthMatch;
+
+        return dayOfMonthMatch || dayOfWeekMatch;
+    }
+}
+
+internal sealed class CronFieldMatcher
+{
+    private readonly HashSet<int> _values;
+    private readonly List<int> _sortedValues;
+
+    private CronFieldMatcher(HashSet<int> values, bool isWildcard)
+    {
+        _values = values;
+        _sortedValues = values.OrderBy(value => value).ToList();
+        IsWildcard = isWildcard;
+    }
+
+    public bool IsWildcard { get; }
+
+    public bool IsMatch(int value)
+    {
+        if (IsWildcard)
+            return true;
+
+        if (value == 0 && _values.Contains(7))
+            return true;
+
+        return _values.Contains(value);
+    }
+
+    public bool TryGetNextOrSame(int value, out int nextValue)
+    {
+        if (IsWildcard)
+        {
+            nextValue = value;
+            return true;
+        }
+
+        foreach (var candidate in _sortedValues)
+        {
+            if (candidate >= value)
+            {
+                nextValue = candidate;
+                return true;
+            }
+        }
+
+        nextValue = default;
+        return false;
+    }
+
+    public static CronFieldMatcher? TryParse(string field, int min, int max)
+    {
+        if (string.IsNullOrWhiteSpace(field))
+            return null;
+
+        if (field == "*")
+            return new CronFieldMatcher(new HashSet<int>(), true);
+
+        var values = new HashSet<int>();
+        foreach (var segment in field.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!TryParseSegment(segment, min, max, values))
+                return null;
+        }
+
+        return new CronFieldMatcher(values, false);
+    }
+
+    private static bool TryParseSegment(string segment, int min, int max, HashSet<int> values)
+    {
+        if (segment.Contains('/'))
+        {
+            var parts = segment.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length != 2 || !int.TryParse(parts[1], out var step) || step <= 0)
+                return false;
+
+            var range = parts[0];
+            if (range == "*")
+                return AddRange(min, max, step, values);
+
+            var bounds = range.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (bounds.Length != 2 ||
+                !int.TryParse(bounds[0], out var start) ||
+                !int.TryParse(bounds[1], out var end))
+            {
+                return false;
+            }
+
+            if (!IsInRange(start, min, max) || !IsInRange(end, min, max) || start > end)
+                return false;
+
+            return AddRange(start, end, step, values);
+        }
+
+        if (segment.Contains('-'))
+        {
+            var bounds = segment.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (bounds.Length != 2 ||
+                !int.TryParse(bounds[0], out var start) ||
+                !int.TryParse(bounds[1], out var end))
+            {
+                return false;
+            }
+
+            if (!IsInRange(start, min, max) || !IsInRange(end, min, max) || start > end)
+                return false;
+
+            return AddRange(start, end, 1, values);
+        }
+
+        if (!int.TryParse(segment, out var singleValue) || !IsInRange(singleValue, min, max))
+            return false;
+
+        values.Add(singleValue);
+        return true;
+    }
+
+    private static bool AddRange(int start, int end, int step, HashSet<int> values)
+    {
+        for (var value = start; value <= end; value += step)
+            values.Add(value);
+
+        return true;
+    }
+
+    private static bool IsInRange(int value, int min, int max) => value >= min && value <= max;
 }
