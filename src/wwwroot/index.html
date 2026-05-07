@@ -131,10 +131,10 @@
                 <div class="card-body">
                     <div class="file-path" id="epg-path">Loading...</div>
                     <div id="epg-status" class="status hidden"></div>
-                    <textarea id="epg-content" placeholder="Enter EPG URLs, one per line...&#10;https://example.com/guide1&#10;https://example.com/guide2"></textarea>
+                    <textarea id="epg-content" class="readonly-listing" placeholder="No EPG URLs configured yet." readonly></textarea>
                     <div class="button-group">
                         <button onclick="loadEpgUrls()" class="btn-secondary"><img src="/images/icons/iconRefresh.svg" alt="Reload" class="btn-icon"> Reload</button>
-                        <button onclick="saveEpgUrls()" class="btn-primary"><img src="/images/icons/iconSave.svg" alt="Save" class="btn-icon"> Save URLs</button>
+                        <button onclick="openEpgUrlsModal()" class="btn-primary" id="edit-epg-urls-btn"><img src="/images/icons/iconSave.svg" alt="Edit" class="btn-icon"> Edit URLs</button>
                         <button onclick="testEpgUrls()" class="btn-success" id="test-sources-btn"><img src="/images/icons/iconValidate.svg" alt="Test" class="btn-icon"> Test Sources</button>
                     </div>
                 </div>
@@ -290,6 +290,52 @@
         </div>
     </div>
 
+    <!-- EPG URL Sources Modal -->
+    <div id="epgUrlsModal" class="modal hidden">
+        <div class="modal-overlay" onclick="attemptCloseEpgUrlsModal()"></div>
+        <div class="modal-content epg-urls-modal-content">
+            <div class="modal-header">
+                <h3>Edit EPG URL Sources</h3>
+                <button class="modal-close" onclick="attemptCloseEpgUrlsModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="file-path" id="epg-modal-path">Loading...</div>
+                <div id="epg-modal-status" class="status hidden"></div>
+                <div class="epg-urls-editor">
+                    <div class="epg-urls-input-row">
+                        <input type="text" id="epg-url-input" class="epg-url-input" placeholder="https://example.com/guide.xml" onkeydown="handleEpgUrlInputKey(event)">
+                        <button type="button" class="btn-success epg-url-add-button" onclick="addEpgUrlDraft()">Add URL</button>
+                    </div>
+                    <div class="epg-url-editor-summary" id="epg-url-editor-summary"></div>
+                    <div class="epg-url-list" id="epg-url-list"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="attemptCloseEpgUrlsModal()">Cancel</button>
+                <button class="btn-primary" id="save-epg-urls-modal-btn" onclick="saveEpgUrlsFromModal()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unsaved EPG URL Changes Modal -->
+    <div id="epgUnsavedModal" class="modal hidden">
+        <div class="modal-overlay" onclick="resolveEpgUnsavedChoice('cancel')"></div>
+        <div class="modal-content epg-unsaved-modal-content">
+            <div class="modal-header">
+                <h3>Unsaved EPG URL Changes</h3>
+                <button class="modal-close" onclick="resolveEpgUnsavedChoice('cancel')">✕</button>
+            </div>
+            <div class="modal-body">
+                <p>You have unsaved changes to your EPG source list. Save them before closing?</p>
+            </div>
+            <div class="modal-footer modal-footer-start">
+                <button class="btn-primary" onclick="resolveEpgUnsavedChoice('save')">Save</button>
+                <button class="btn-danger" onclick="resolveEpgUnsavedChoice('discard')">Don't Save</button>
+                <button class="btn-secondary" onclick="resolveEpgUnsavedChoice('cancel')">Keep Editing</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Confirmation Modal -->
     <div id="confirmModal" class="modal hidden">
         <div class="modal-overlay" onclick="closeConfirmModal()"></div>
@@ -400,11 +446,25 @@
 
     <script>
         const pendingActions = new Set();
+        const _epgUrlState = {
+            persistedUrls: [],
+            draftUrls: [],
+            path: '',
+            unsavedChoiceResolver: null
+        };
 
         // Global ESC key handler to close all modals
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') {
                 document.getElementById('confirmModal').classList.add('hidden');
+                if (!document.getElementById('epgUnsavedModal').classList.contains('hidden')) {
+                    resolveEpgUnsavedChoice('cancel');
+                    return;
+                }
+                if (!document.getElementById('epgUrlsModal').classList.contains('hidden')) {
+                    attemptCloseEpgUrlsModal();
+                    return;
+                }
                 document.getElementById('guidePreviewModal').classList.add('hidden');
                 document.getElementById('channelPreviewModal').classList.add('hidden');
                 document.getElementById('mapSuggestionsModal').classList.add('hidden');
@@ -701,6 +761,180 @@
             document.getElementById('channelSettingsModal').classList.add('hidden');
         }
 
+        function parseEpgUrlContent(content) {
+            return String(content || '')
+                .split(/\r?\n/)
+                .map(line => line.trim())
+                .filter(line => line.length > 0 && !line.startsWith('#'));
+        }
+
+        function formatEpgUrlContent(urls) {
+            return (urls || []).map(url => String(url).trim()).filter(Boolean).join('\n');
+        }
+
+        function cloneUrlList(urls) {
+            return Array.isArray(urls) ? urls.slice() : [];
+        }
+
+        function areUrlListsEqual(left, right) {
+            if (left.length !== right.length) {
+                return false;
+            }
+
+            return left.every((value, index) => value === right[index]);
+        }
+
+        function hasUnsavedEpgUrlChanges() {
+            return !areUrlListsEqual(_epgUrlState.persistedUrls, _epgUrlState.draftUrls);
+        }
+
+        function updateReadonlyEpgUrlListing() {
+            const epgContent = document.getElementById('epg-content');
+            const epgPath = document.getElementById('epg-path');
+            const modalPath = document.getElementById('epg-modal-path');
+
+            if (epgContent) {
+                epgContent.value = formatEpgUrlContent(_epgUrlState.persistedUrls);
+            }
+
+            if (epgPath) {
+                epgPath.textContent = _epgUrlState.path || 'Not configured';
+            }
+
+            if (modalPath) {
+                modalPath.textContent = _epgUrlState.path || 'Not configured';
+            }
+        }
+
+        function renderEpgUrlDraftList() {
+            const list = document.getElementById('epg-url-list');
+            const summary = document.getElementById('epg-url-editor-summary');
+
+            if (!list || !summary) return;
+
+            const count = _epgUrlState.draftUrls.length;
+            summary.textContent = `${count} URL${count === 1 ? '' : 's'} configured${hasUnsavedEpgUrlChanges() ? ' • Unsaved changes' : ''}`;
+
+            if (count === 0) {
+                list.innerHTML = '<div class="epg-url-empty-state">No EPG URLs configured yet.</div>';
+                return;
+            }
+
+            list.innerHTML = _epgUrlState.draftUrls.map((url, index) => `
+                <div class="epg-url-item">
+                    <div class="epg-url-item-content">
+                        <div class="epg-url-index">${index + 1}</div>
+                        <div class="epg-url-value">${escapeHtml(url)}</div>
+                    </div>
+                    <button
+                        type="button"
+                        class="epg-url-remove-button"
+                        onclick="removeEpgUrlDraft(${index})"
+                        aria-label="Remove URL ${index + 1}">
+                        x
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function openEpgUrlsModal() {
+            _epgUrlState.draftUrls = cloneUrlList(_epgUrlState.persistedUrls);
+            document.getElementById('epg-url-input').value = '';
+            document.getElementById('epg-modal-status').classList.add('hidden');
+            renderEpgUrlDraftList();
+            document.getElementById('epgUrlsModal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('epg-url-input')?.focus(), 0);
+        }
+
+        function closeEpgUrlsModalImmediate() {
+            document.getElementById('epgUrlsModal').classList.add('hidden');
+            document.getElementById('epgUnsavedModal').classList.add('hidden');
+            document.getElementById('epg-modal-status').classList.add('hidden');
+        }
+
+        function promptEpgUnsavedChoice() {
+            return new Promise(resolve => {
+                _epgUrlState.unsavedChoiceResolver = resolve;
+                document.getElementById('epgUnsavedModal').classList.remove('hidden');
+            });
+        }
+
+        function resolveEpgUnsavedChoice(choice) {
+            document.getElementById('epgUnsavedModal').classList.add('hidden');
+            if (_epgUrlState.unsavedChoiceResolver) {
+                _epgUrlState.unsavedChoiceResolver(choice);
+                _epgUrlState.unsavedChoiceResolver = null;
+            }
+        }
+
+        async function attemptCloseEpgUrlsModal() {
+            const modal = document.getElementById('epgUrlsModal');
+            if (!modal || modal.classList.contains('hidden')) {
+                return;
+            }
+
+            if (!hasUnsavedEpgUrlChanges()) {
+                closeEpgUrlsModalImmediate();
+                return;
+            }
+
+            const choice = await promptEpgUnsavedChoice();
+            if (choice === 'save') {
+                const saved = await saveEpgUrlsFromModal();
+                if (saved) {
+                    closeEpgUrlsModalImmediate();
+                }
+                return;
+            }
+
+            if (choice === 'discard') {
+                closeEpgUrlsModalImmediate();
+            }
+        }
+
+        function handleEpgUrlInputKey(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                addEpgUrlDraft();
+            }
+        }
+
+        function addEpgUrlDraft() {
+            const input = document.getElementById('epg-url-input');
+            const value = (input?.value || '').trim();
+
+            if (!value) {
+                showStatus('epg-modal-status', 'Enter a URL before adding it.', 'warning');
+                return;
+            }
+
+            if (value.startsWith('#')) {
+                showStatus('epg-modal-status', 'The modal manages URL entries only.', 'warning');
+                return;
+            }
+
+            if (_epgUrlState.draftUrls.includes(value)) {
+                showStatus('epg-modal-status', 'That URL is already in the list.', 'warning');
+                return;
+            }
+
+            _epgUrlState.draftUrls.push(value);
+            input.value = '';
+            renderEpgUrlDraftList();
+            showStatus('epg-modal-status', 'URL added to the draft list.', 'success');
+            input.focus();
+        }
+
+        function removeEpgUrlDraft(index) {
+            if (index < 0 || index >= _epgUrlState.draftUrls.length) {
+                return;
+            }
+
+            _epgUrlState.draftUrls.splice(index, 1);
+            renderEpgUrlDraftList();
+            showStatus('epg-modal-status', 'URL removed from the draft list.', 'success');
+        }
+
         async function loadChannelSettings() {
             try {
                 const response = await apiCall('settings');
@@ -753,8 +987,9 @@
         let _guideData = {
             channelMap: {},
             channelList: [],
-            channelIds: {},
             timeSlots: [],
+            slotMinutes: 30,
+            gridStart: null,
             programsByChannel: {}
         };
         let _guideSearchType = 'channel';
@@ -764,55 +999,170 @@
             filterGuideChannels();
         }
 
+        function parseXmlTvDateTime(value) {
+            const text = String(value || '').trim();
+            const match = text.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})?(?:\s+([+\-]\d{4}|Z))?$/);
+
+            if (!match) {
+                return null;
+            }
+
+            const [, year, month, day, hour, minute, second = '00', offset = ''] = match;
+            const utcMs = Date.UTC(
+                Number(year),
+                Number(month) - 1,
+                Number(day),
+                Number(hour),
+                Number(minute),
+                Number(second)
+            );
+
+            if (!offset) {
+                return new Date(
+                    Number(year),
+                    Number(month) - 1,
+                    Number(day),
+                    Number(hour),
+                    Number(minute),
+                    Number(second)
+                );
+            }
+
+            if (offset === 'Z') {
+                return new Date(utcMs);
+            }
+
+            const sign = offset.startsWith('-') ? -1 : 1;
+            const hours = Number(offset.substring(1, 3));
+            const minutes = Number(offset.substring(3, 5));
+            const offsetMinutes = sign * ((hours * 60) + minutes);
+            return new Date(utcMs - (offsetMinutes * 60000));
+        }
+
+        function floorDateToSlot(date, slotMinutes) {
+            const floored = new Date(date);
+            floored.setSeconds(0, 0);
+            floored.setMinutes(Math.floor(floored.getMinutes() / slotMinutes) * slotMinutes);
+            return floored;
+        }
+
+        function ceilDateToSlot(date, slotMinutes) {
+            const ceiled = floorDateToSlot(date, slotMinutes);
+            if (ceiled.getTime() < date.getTime()) {
+                ceiled.setMinutes(ceiled.getMinutes() + slotMinutes);
+            }
+            return ceiled;
+        }
+
+        function formatGuideTime(date) {
+            return date.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+        }
+
+        function getPreferredGuideSlotIndex() {
+            const { timeSlots, slotMinutes, gridStart } = _guideData;
+            if (!gridStart || timeSlots.length === 0) {
+                return 0;
+            }
+
+            const slotMs = slotMinutes * 60 * 1000;
+            const now = new Date();
+            const rangeEnd = new Date(timeSlots[timeSlots.length - 1].getTime() + slotMs);
+
+            if (now >= gridStart && now < rangeEnd) {
+                const currentIndex = Math.floor((now.getTime() - gridStart.getTime()) / slotMs);
+                return Math.max(0, currentIndex - 1);
+            }
+
+            return 0;
+        }
+
+        function scrollGuidePreviewToRelevantTime() {
+            const body = document.querySelector('#guidePreviewModal .guide-preview-modal-body');
+            const timeCells = body?.querySelectorAll('.guide-grid-time-cell');
+            if (!body || !timeCells?.length) {
+                return;
+            }
+
+            const targetIndex = Math.min(getPreferredGuideSlotIndex(), timeCells.length - 1);
+            const targetCell = timeCells[targetIndex];
+            if (!targetCell) {
+                return;
+            }
+
+            body.scrollLeft = Math.max(0, targetCell.offsetLeft - 220);
+        }
+
         function renderGuideGrid(filteredChannels) {
-            const { channelMap, channelIds, timeSlots, programsByChannel } = _guideData;
-            
-            // Render grid
+            const { channelMap, timeSlots, slotMinutes, gridStart, programsByChannel } = _guideData;
+
+            if (!gridStart || timeSlots.length === 0) {
+                document.getElementById('guidePreviewContent').innerHTML = '<p class="guide-preview-message guide-preview-message-warning">No guide slots are available to display.</p>';
+                return;
+            }
+
+            const slotMs = slotMinutes * 60 * 1000;
+            const rowTemplate = `180px repeat(${timeSlots.length}, minmax(120px, 120px))`;
             let html = '<div class="guide-grid">';
-            
-            // Header with time slots
-            html += '<div class="guide-grid-row guide-grid-header-row">';
+
+            html += `<div class="guide-grid-row guide-grid-header-row" style="grid-template-columns: ${rowTemplate};">`;
             html += '<div class="guide-grid-header-cell">Channel</div>';
-            
+
             for (const slot of timeSlots) {
-                const timeStr = slot.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-                html += `<div class="guide-grid-time-cell">${timeStr}</div>`;
+                html += `<div class="guide-grid-time-cell">${formatGuideTime(slot)}</div>`;
             }
             html += '</div>';
-            
-            // Channel rows
+
             for (const channelId of filteredChannels) {
-                html += '<div class="guide-grid-row">';
-                
-                // Channel name with ID
+                html += `<div class="guide-grid-row" style="grid-template-columns: ${rowTemplate};">`;
+
                 const displayName = channelMap[channelId] || channelId;
                 html += `<div class="guide-grid-channel-cell" title="${escapeHtml(displayName)}">
-                    <div class="guide-grid-channel-name">${escapeHtml(displayName.substring(0, 20))}</div>
+                    <div class="guide-grid-channel-name">${escapeHtml(displayName)}</div>
                     <div class="guide-grid-channel-id">${escapeHtml(channelId)}</div>
                 </div>`;
-                
-                // Program cells
-                const channelProgs = programsByChannel[channelId] || [];
-                for (const slot of timeSlots) {
-                    const slotEnd = new Date(slot);
-                    slotEnd.setHours(slot.getHours() + 1);
-                    
-                    const prog = channelProgs.find(p => p.start >= slot && p.start < slotEnd);
-                    
-                    if (prog) {
-                        const startTime = prog.start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-                        html += '<div class="guide-grid-program-cell">';
-                        html += `<div class="guide-grid-program-title">${escapeHtml(prog.title.substring(0, 25))}</div>`;
-                        html += `<div class="guide-grid-program-time">${startTime}</div>`;
-                        html += `</div>`;
-                    } else {
-                        html += '<div class="guide-grid-empty-cell"></div>';
+
+                const channelPrograms = (programsByChannel[channelId] || []).slice().sort((a, b) => a.start - b.start);
+                let cursor = 0;
+
+                for (const prog of channelPrograms) {
+                    const rawStartIndex = Math.floor((prog.start.getTime() - gridStart.getTime()) / slotMs);
+                    const rawEndIndex = Math.ceil((prog.stop.getTime() - gridStart.getTime()) / slotMs);
+                    let startIndex = Math.max(0, rawStartIndex);
+                    const endIndex = Math.min(timeSlots.length, Math.max(startIndex + 1, rawEndIndex));
+
+                    if (endIndex <= cursor || startIndex >= timeSlots.length) {
+                        continue;
                     }
+
+                    startIndex = Math.max(startIndex, cursor);
+
+                    if (startIndex > cursor) {
+                        html += `<div class="guide-grid-empty-cell" style="grid-column: span ${startIndex - cursor};"></div>`;
+                    }
+
+                    const span = Math.max(1, endIndex - startIndex);
+                    const tooltip = [prog.title, `${formatGuideTime(prog.start)} - ${formatGuideTime(prog.stop)}`, prog.desc]
+                        .filter(Boolean)
+                        .join('\n');
+
+                    html += `<div class="guide-grid-program-cell" style="grid-column: span ${span};" title="${escapeHtml(tooltip)}">
+                        <div class="guide-grid-program-title">${escapeHtml(prog.title)}</div>
+                        <div class="guide-grid-program-time">${escapeHtml(formatGuideTime(prog.start))} - ${escapeHtml(formatGuideTime(prog.stop))}</div>
+                    </div>`;
+                    cursor = endIndex;
                 }
-                
+
+                if (cursor < timeSlots.length) {
+                    html += `<div class="guide-grid-empty-cell" style="grid-column: span ${timeSlots.length - cursor};"></div>`;
+                }
+
                 html += '</div>';
             }
-            
+
             html += '</div>';
             document.getElementById('guidePreviewContent').innerHTML = html;
         }
@@ -889,52 +1239,59 @@
                     channelList.push(channelId);
                 }
 
-                // Build program index for all channels
                 const programsByChannel = {};
                 let minTime = null;
                 let maxTime = null;
-                
+
                 for (let i = 0; i < programs.length; i++) {
                     const prog = programs[i];
                     const channelId = prog.getAttribute('channel');
-                    const startStr = prog.getAttribute('start');
-                    
-                    const start = new Date(parseInt(startStr.substring(0, 4)), parseInt(startStr.substring(4, 6)) - 1, parseInt(startStr.substring(6, 8)), parseInt(startStr.substring(8, 10)), parseInt(startStr.substring(10, 12)));
-                    
-                    if (!programsByChannel[channelId]) programsByChannel[channelId] = [];
+                    const start = parseXmlTvDateTime(prog.getAttribute('start'));
+                    const stop = parseXmlTvDateTime(prog.getAttribute('stop'));
+
+                    if (!channelId || !start) {
+                        continue;
+                    }
+
+                    if (!programsByChannel[channelId]) {
+                        programsByChannel[channelId] = [];
+                    }
+
                     programsByChannel[channelId].push({
-                        start: start,
+                        start,
+                        stop,
                         title: prog.getElementsByTagName('title')[0]?.textContent || 'Unknown',
                         desc: prog.getElementsByTagName('desc')[0]?.textContent || ''
                     });
-                    
-                    // Track min/max times
-                    if (!minTime || start < minTime) minTime = start;
-                    if (!maxTime || start > maxTime) maxTime = start;
                 }
 
-                // Sort programs by start time for each channel
-                for (const ch in programsByChannel) {
-                    programsByChannel[ch].sort((a, b) => a.start - b.start);
+                for (const channelId in programsByChannel) {
+                    const channelPrograms = programsByChannel[channelId].sort((a, b) => a.start - b.start);
+                    for (let index = 0; index < channelPrograms.length; index++) {
+                        const current = channelPrograms[index];
+                        const next = channelPrograms[index + 1];
+
+                        if (!(current.stop instanceof Date) || Number.isNaN(current.stop.getTime()) || current.stop <= current.start) {
+                            current.stop = next?.start && next.start > current.start
+                                ? new Date(next.start)
+                                : new Date(current.start.getTime() + (30 * 60 * 1000));
+                        }
+
+                        if (!minTime || current.start < minTime) minTime = current.start;
+                        if (!maxTime || current.stop > maxTime) maxTime = current.stop;
+                    }
                 }
 
-                // Generate time slots from actual data (hourly from earliest to latest program, plus one more hour)
                 const timeSlots = [];
+                const slotMinutes = 30;
                 if (minTime && maxTime) {
-                    const startHour = new Date(minTime);
-                    startHour.setMinutes(0);
-                    startHour.setSeconds(0);
-                    
-                    // Add one hour to maxTime to ensure we capture all programs
-                    const endHour = new Date(maxTime);
-                    endHour.setHours(endHour.getHours() + 1);
-                    endHour.setMinutes(0);
-                    endHour.setSeconds(0);
-                    
-                    let slotTime = new Date(startHour);
-                    while (slotTime <= endHour) {
+                    const startSlot = floorDateToSlot(minTime, slotMinutes);
+                    const endSlot = ceilDateToSlot(maxTime, slotMinutes);
+
+                    let slotTime = new Date(startSlot);
+                    while (slotTime < endSlot) {
                         timeSlots.push(new Date(slotTime));
-                        slotTime.setHours(slotTime.getHours() + 1);
+                        slotTime.setMinutes(slotTime.getMinutes() + slotMinutes);
                     }
                 }
 
@@ -945,15 +1302,17 @@
 
                 // Store data globally for filtering
                 _guideData = {
-                    channelMap: channelMap,
-                    channelList: channelList,
-                    channelIds: channelList,
-                    timeSlots: timeSlots,
-                    programsByChannel: programsByChannel
+                    channelMap,
+                    channelList,
+                    timeSlots,
+                    slotMinutes,
+                    gridStart: timeSlots[0] || null,
+                    programsByChannel
                 };
 
                 // Render initial grid
                 renderGuideGrid(channelList);
+                scrollGuidePreviewToRelevantTime();
                 showToast('Guide preview loaded.', 'success');
             } catch (error) {
                 console.error('Error previewing guide:', error);
@@ -1025,9 +1384,7 @@
                     ? epgResponse.content
                     : '';
 
-                const epgUrls = epgContent
-                    .split('\n')
-                    .filter(line => line.trim()).length;
+                const epgUrls = parseEpgUrlContent(epgContent).length;
 
                 document.getElementById('epg-count').textContent = epgUrls;
 
@@ -1192,7 +1549,6 @@
         // Load EPG URLs
         async function loadEpgUrls() {
             const epgContent = document.getElementById('epg-content');
-            const epgPath = document.getElementById('epg-path');
             const container = epgContent?.parentElement;
 
             try {
@@ -1200,12 +1556,15 @@
 
                 const response = await apiCall('epg-urls');
 
-                if (!response?.content || !response?.path) {
+                if (typeof response?.content !== 'string' || typeof response?.path !== 'string') {
                     throw new Error('Invalid response from server');
                 }
 
-                epgContent.value = response.content;
-                epgPath.textContent = response.path;
+                _epgUrlState.persistedUrls = parseEpgUrlContent(response.content);
+                _epgUrlState.draftUrls = cloneUrlList(_epgUrlState.persistedUrls);
+                _epgUrlState.path = response.path;
+                updateReadonlyEpgUrlListing();
+                renderEpgUrlDraftList();
 
                 showStatus('epg-status', 'EPG URLs loaded successfully', 'success');
             } catch (error) {
@@ -1220,14 +1579,16 @@
         }
 
         // Save EPG URLs
-        async function saveEpgUrls() {
+        async function saveEpgUrls(contentOverride = null, statusElementId = 'epg-status') {
             const epgContent = document.getElementById('epg-content');
             const container = epgContent?.parentElement;
 
             try {
                 container?.classList.add('loading');
 
-                const content = epgContent.value;
+                const content = typeof contentOverride === 'string'
+                    ? contentOverride
+                    : formatEpgUrlContent(_epgUrlState.persistedUrls);
                 const response = await fetch('/api/config/epg-urls', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1242,17 +1603,34 @@
                     if (Array.isArray(result.invalidUrls) && result.invalidUrls.length) {
                         msg += `. Invalid URLs: ${result.invalidUrls.join(', ')}`;
                     }
-                    showStatus('epg-status', msg, 'error');
-                    return;
+                    showStatus(statusElementId, msg, 'error');
+                    return false;
                 }
 
-                showStatus('epg-status', result?.message ?? 'Saved.', 'success');
+                showStatus(statusElementId, result?.message ?? 'Saved.', 'success');
+                if (statusElementId !== 'epg-status') {
+                    showStatus('epg-status', result?.message ?? 'Saved.', 'success');
+                }
+                _epgUrlState.persistedUrls = parseEpgUrlContent(content);
+                _epgUrlState.draftUrls = cloneUrlList(_epgUrlState.persistedUrls);
+                updateReadonlyEpgUrlListing();
                 await loadStatus(); // refresh status
+                return true;
             } catch (error) {
-                showStatus('epg-status', `Error saving EPG URLs: ${error.message}`, 'error');
+                showStatus(statusElementId, `Error saving EPG URLs: ${error.message}`, 'error');
+                return false;
             } finally {
                 container?.classList.remove('loading');
             }
+        }
+
+        async function saveEpgUrlsFromModal() {
+            const saved = await saveEpgUrls(formatEpgUrlContent(_epgUrlState.draftUrls), 'epg-modal-status');
+            if (saved) {
+                renderEpgUrlDraftList();
+                closeEpgUrlsModalImmediate();
+            }
+            return saved;
         }
 
 
@@ -1754,8 +2132,7 @@
 
         // Test EPG sources for reachability and format support
         async function testEpgUrls() {
-            const urlsText = document.getElementById('epg-content').value;
-            const urls = urlsText.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+            const urls = cloneUrlList(_epgUrlState.persistedUrls);
 
             if (urls.length === 0) {
                 showToast('Please enter at least one URL.', 'warning');
@@ -2341,8 +2718,7 @@
 
         // Preview detected channels from configured sources
         async function previewChannels() {
-            const urlsText = document.getElementById('epg-content').value;
-            const urls = urlsText.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+            const urls = cloneUrlList(_epgUrlState.persistedUrls);
 
             if (urls.length === 0) {
                 showToast('Please enter at least one EPG URL.', 'warning');
