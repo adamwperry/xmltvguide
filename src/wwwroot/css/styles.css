@@ -2316,10 +2316,71 @@ a img.btn-icon {
     padding: 0;
 }
 
+.sidebar,
+textarea,
+.cron-logs-container,
+.guide-preview-modal-body,
+.channel-preview-modal-body,
+.map-suggestions-modal-body {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(168, 85, 247, 0.9) rgba(15, 24, 48, 0.75);
+}
+
+.sidebar::-webkit-scrollbar,
+textarea::-webkit-scrollbar,
+.cron-logs-container::-webkit-scrollbar,
+.guide-preview-modal-body::-webkit-scrollbar,
+.channel-preview-modal-body::-webkit-scrollbar,
+.map-suggestions-modal-body::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.sidebar::-webkit-scrollbar-track,
+textarea::-webkit-scrollbar-track,
+.cron-logs-container::-webkit-scrollbar-track,
+.guide-preview-modal-body::-webkit-scrollbar-track,
+.channel-preview-modal-body::-webkit-scrollbar-track,
+.map-suggestions-modal-body::-webkit-scrollbar-track {
+    background: rgba(15, 24, 48, 0.82);
+    border-radius: 999px;
+}
+
+.sidebar::-webkit-scrollbar-thumb,
+textarea::-webkit-scrollbar-thumb,
+.cron-logs-container::-webkit-scrollbar-thumb,
+.guide-preview-modal-body::-webkit-scrollbar-thumb,
+.channel-preview-modal-body::-webkit-scrollbar-thumb,
+.map-suggestions-modal-body::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(192, 132, 252, 0.96), rgba(124, 58, 237, 0.96));
+    border: 2px solid rgba(15, 24, 48, 0.82);
+    border-radius: 999px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover,
+textarea::-webkit-scrollbar-thumb:hover,
+.cron-logs-container::-webkit-scrollbar-thumb:hover,
+.guide-preview-modal-body::-webkit-scrollbar-thumb:hover,
+.channel-preview-modal-body::-webkit-scrollbar-thumb:hover,
+.map-suggestions-modal-body::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(216, 180, 254, 1), rgba(147, 51, 234, 1));
+}
+
+.sidebar::-webkit-scrollbar-corner,
+textarea::-webkit-scrollbar-corner,
+.cron-logs-container::-webkit-scrollbar-corner,
+.guide-preview-modal-body::-webkit-scrollbar-corner,
+.channel-preview-modal-body::-webkit-scrollbar-corner,
+.map-suggestions-modal-body::-webkit-scrollbar-corner {
+    background: rgba(15, 24, 48, 0.82);
+}
+
 .channel-preview-modal-body {
     overflow-x: auto;
     overflow-y: auto;
     max-height: none;
+    position: relative;
+    padding: 0;
 }
 
 .map-suggestions-modal-body {
@@ -2331,6 +2392,10 @@ a img.btn-icon {
 .guide-preview-content {
     display: inline-block;
     vertical-align: top;
+}
+
+#channelPreviewContent {
+    padding: 0 24px 24px;
 }
 
 .guide-preview-message {
@@ -2385,6 +2450,12 @@ a img.btn-icon {
     font-size: 11px;
 }
 
+.guide-grid-time-cell-current {
+    background: linear-gradient(180deg, #7c3aed 0%, #5b21b6 100%);
+    color: #ffffff;
+    box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.22);
+}
+
 .guide-grid-channel-cell {
     background: #16213e;
     padding: 8px;
@@ -2395,6 +2466,30 @@ a img.btn-icon {
     position: sticky;
     left: 0;
     z-index: 15;
+}
+
+.guide-grid-channel-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.guide-grid-channel-icon {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+    object-position: center;
+    border-radius: 6px;
+    background: #ffffff;
+    flex: 0 0 30px;
+    padding: 3px;
+    box-sizing: border-box;
+}
+
+.guide-grid-channel-labels {
+    min-width: 0;
+    flex: 1 1 auto;
 }
 
 .guide-grid-channel-name,
@@ -2426,6 +2521,11 @@ a img.btn-icon {
     flex-direction: column;
     justify-content: space-between;
     gap: 8px;
+}
+
+.guide-grid-program-cell-current {
+    background: linear-gradient(180deg, #f5d97f 0%, #e0bb52 100%);
+    box-shadow: inset 0 0 0 2px rgba(124, 58, 237, 0.42);
 }
 
 .guide-grid-empty-cell {
@@ -2576,7 +2676,7 @@ a img.btn-icon {
 .channel-preview-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 8px;
+    margin-top: 0;
 }
 
 .channel-preview-table tr {
@@ -2585,6 +2685,7 @@ a img.btn-icon {
 
 .channel-preview-table thead tr {
     border-bottom: 1px solid #666;
+    background: #241a45;
 }
 
 .channel-preview-table th {
@@ -2593,6 +2694,7 @@ a img.btn-icon {
     position: sticky;
     top: 0;
     background: #241a45;
+    z-index: 2;
 }
 
 .channel-preview-table td {

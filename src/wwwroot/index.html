@@ -986,6 +986,7 @@
         // Global guide data storage
         let _guideData = {
             channelMap: {},
+            channelIcons: {},
             channelList: [],
             timeSlots: [],
             slotMinutes: 30,
@@ -1097,7 +1098,7 @@
         }
 
         function renderGuideGrid(filteredChannels) {
-            const { channelMap, timeSlots, slotMinutes, gridStart, programsByChannel } = _guideData;
+            const { channelMap, channelIcons, timeSlots, slotMinutes, gridStart, programsByChannel } = _guideData;
 
             if (!gridStart || timeSlots.length === 0) {
                 document.getElementById('guidePreviewContent').innerHTML = '<p class="guide-preview-message guide-preview-message-warning">No guide slots are available to display.</p>';
@@ -1105,6 +1106,7 @@
             }
 
             const slotMs = slotMinutes * 60 * 1000;
+            const now = new Date();
             const rowTemplate = `180px repeat(${timeSlots.length}, minmax(120px, 120px))`;
             let html = '<div class="guide-grid">';
 
@@ -1112,7 +1114,9 @@
             html += '<div class="guide-grid-header-cell">Channel</div>';
 
             for (const slot of timeSlots) {
-                html += `<div class="guide-grid-time-cell">${formatGuideTime(slot)}</div>`;
+                const slotEnd = new Date(slot.getTime() + slotMs);
+                const isCurrentSlot = now >= slot && now < slotEnd;
+                html += `<div class="guide-grid-time-cell${isCurrentSlot ? ' guide-grid-time-cell-current' : ''}">${formatGuideTime(slot)}</div>`;
             }
             html += '</div>';
 
@@ -1120,9 +1124,15 @@
                 html += `<div class="guide-grid-row" style="grid-template-columns: ${rowTemplate};">`;
 
                 const displayName = channelMap[channelId] || channelId;
+                const iconSrc = channelIcons[channelId];
                 html += `<div class="guide-grid-channel-cell" title="${escapeHtml(displayName)}">
-                    <div class="guide-grid-channel-name">${escapeHtml(displayName)}</div>
-                    <div class="guide-grid-channel-id">${escapeHtml(channelId)}</div>
+                    <div class="guide-grid-channel-header">
+                        ${iconSrc ? `<img class="guide-grid-channel-icon" src="${escapeHtml(iconSrc)}" alt="" loading="lazy">` : ''}
+                        <div class="guide-grid-channel-labels">
+                            <div class="guide-grid-channel-name">${escapeHtml(displayName)}</div>
+                            <div class="guide-grid-channel-id">${escapeHtml(channelId)}</div>
+                        </div>
+                    </div>
                 </div>`;
 
                 const channelPrograms = (programsByChannel[channelId] || []).slice().sort((a, b) => a.start - b.start);
@@ -1148,8 +1158,9 @@
                     const tooltip = [prog.title, `${formatGuideTime(prog.start)} - ${formatGuideTime(prog.stop)}`, prog.desc]
                         .filter(Boolean)
                         .join('\n');
+                    const isCurrentProgram = now >= prog.start && now < prog.stop;
 
-                    html += `<div class="guide-grid-program-cell" style="grid-column: span ${span};" title="${escapeHtml(tooltip)}">
+                    html += `<div class="guide-grid-program-cell${isCurrentProgram ? ' guide-grid-program-cell-current' : ''}" style="grid-column: span ${span};" title="${escapeHtml(tooltip)}">
                         <div class="guide-grid-program-title">${escapeHtml(prog.title)}</div>
                         <div class="guide-grid-program-time">${escapeHtml(formatGuideTime(prog.start))} - ${escapeHtml(formatGuideTime(prog.stop))}</div>
                     </div>`;
@@ -1231,11 +1242,16 @@
 
                 // Build channel map - GET ALL CHANNELS
                 const channelMap = {};
+                const channelIcons = {};
                 const channelList = [];
                 for (let i = 0; i < channels.length; i++) {
                     const channelId = channels[i].getAttribute('id');
                     const displayName = channels[i].getElementsByTagName('display-name')[0]?.textContent || channelId;
+                    const iconSrc = channels[i].getElementsByTagName('icon')[0]?.getAttribute('src') || '';
                     channelMap[channelId] = displayName;
+                    if (iconSrc) {
+                        channelIcons[channelId] = iconSrc;
+                    }
                     channelList.push(channelId);
                 }
 
@@ -1303,6 +1319,7 @@
                 // Store data globally for filtering
                 _guideData = {
                     channelMap,
+                    channelIcons,
                     channelList,
                     timeSlots,
                     slotMinutes,
