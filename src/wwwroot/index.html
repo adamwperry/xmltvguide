@@ -165,7 +165,18 @@
                 <div class="card-body">
                     <div class="file-path" id="channel-path">Loading...</div>
                     <div id="channel-status" class="status hidden"></div>
-                    <textarea id="channel-content" placeholder='Enter channel mapping JSON...&#10;{&#10;  "channels": [&#10;    {&#10;      "channel": {&#10;        "name": "APW Sports",&#10;        "channelId": "10179"&#10;      }&#10;    }&#10;  ]&#10;}'></textarea>
+                    <div id="channel-pending-status" class="status status-warning hidden"></div>
+                    <div class="channel-map-editor">
+                        <div class="channel-map-add-row">
+                            <input type="text" id="channel-inline-id-input" class="channel-map-field" placeholder="Channel ID" onkeydown="handleInlineChannelMapInputKey(event)">
+                            <input type="text" id="channel-inline-name-input" class="channel-map-field channel-map-name-field" placeholder="Display name" onkeydown="handleInlineChannelMapInputKey(event)">
+                            <button type="button" class="btn-success channel-map-add-button" onclick="addInlineChannelMapping()">Add Mapping</button>
+                        </div>
+                        <input type="search" id="channel-inline-search" class="channel-map-search" placeholder="Search mappings..." oninput="updateChannelMapSearch(this.value)">
+                        <div class="channel-map-editor-summary" id="channel-inline-editor-summary"></div>
+                        <div class="channel-map-inline-list" id="channel-inline-list"></div>
+                    </div>
+                    <textarea id="channel-content" class="hidden" placeholder='Enter channel mapping JSON...&#10;{&#10;  "channels": [&#10;    {&#10;      "channel": {&#10;        "name": "APW Sports",&#10;        "channelId": "10179"&#10;      }&#10;    }&#10;  ]&#10;}'></textarea>
                     <div class="button-group">
                         <button onclick="loadChannelMap()" class="btn-secondary"><img src="/images/icons/iconRefresh.svg" alt="Reload" class="btn-icon"> Reload</button>
                         <button onclick="validateJson()" class="btn-success"><img src="/images/icons/iconValidate.svg" alt="Validate" class="btn-icon"> Validate</button>
@@ -347,6 +358,28 @@
         </div>
     </div>
 
+    <!-- Channel Mapping Edit Modal -->
+    <div id="channelMapEditModal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeChannelMapEditModal()"></div>
+        <div class="modal-content channel-map-edit-modal-content">
+            <div class="modal-header">
+                <h3>Edit Channel Mapping</h3>
+                <button class="modal-close" onclick="closeChannelMapEditModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="channel-map-edit-status" class="status hidden"></div>
+                <div class="channel-map-edit-fields">
+                    <input type="text" id="channel-map-edit-id" class="channel-map-field" placeholder="Channel ID" onkeydown="handleChannelMapEditKey(event)">
+                    <input type="text" id="channel-map-edit-name" class="channel-map-field" placeholder="Display name" onkeydown="handleChannelMapEditKey(event)">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeChannelMapEditModal()">Cancel</button>
+                <button class="btn-primary" onclick="saveChannelMapEdit()">Save</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Confirmation Modal -->
     <div id="confirmModal" class="modal hidden">
         <div class="modal-overlay" onclick="closeConfirmModal()"></div>
@@ -464,6 +497,12 @@
             searchTerm: '',
             unsavedChoiceResolver: null
         };
+        const _channelMapState = {
+            persistedMap: { channels: [] },
+            draftMap: { channels: [] },
+            searchTerm: '',
+            editingIndex: -1
+        };
 
         // Global ESC key handler to close all modals
         document.addEventListener('keydown', function(event) {
@@ -475,6 +514,10 @@
                 }
                 if (!document.getElementById('epgUrlsModal').classList.contains('hidden')) {
                     attemptCloseEpgUrlsModal();
+                    return;
+                }
+                if (!document.getElementById('channelMapEditModal').classList.contains('hidden')) {
+                    closeChannelMapEditModal();
                     return;
                 }
                 document.getElementById('guidePreviewModal').classList.add('hidden');
@@ -827,6 +870,55 @@
             pendingElement.textContent = '';
         }
 
+        function normalizeChannelMap(channelMap) {
+            const normalized = channelMap && typeof channelMap === 'object'
+                ? JSON.parse(JSON.stringify(channelMap))
+                : { channels: [] };
+
+            if (!Array.isArray(normalized.channels)) {
+                normalized.channels = [];
+            }
+
+            normalized.channels = normalized.channels
+                .filter(entry => entry && typeof entry === 'object')
+                .map(entry => ({
+                    channel: {
+                        channelId: String(entry?.channel?.channelId || '').trim(),
+                        name: String(entry?.channel?.name || '').trim()
+                    }
+                }))
+                .filter(entry => entry.channel.channelId || entry.channel.name);
+
+            return normalized;
+        }
+
+        function cloneChannelMap(channelMap) {
+            return normalizeChannelMap(channelMap);
+        }
+
+        function channelMapSignature(channelMap) {
+            return JSON.stringify(normalizeChannelMap(channelMap));
+        }
+
+        function hasUnsavedChannelMapChanges() {
+            return channelMapSignature(_channelMapState.persistedMap) !== channelMapSignature(_channelMapState.draftMap);
+        }
+
+        function updateChannelMapPendingNotice() {
+            const pendingElement = document.getElementById('channel-pending-status');
+            if (!pendingElement) return;
+
+            if (hasUnsavedChannelMapChanges()) {
+                pendingElement.classList.remove('hidden', 'status-info', 'status-success', 'status-error');
+                pendingElement.classList.add('status', 'status-warning');
+                pendingElement.textContent = 'You have pending channel mapping changes. Save Mapping to apply them.';
+                return;
+            }
+
+            pendingElement.classList.add('hidden');
+            pendingElement.textContent = '';
+        }
+
         function updateReadonlyEpgUrlListing() {
             const epgPath = document.getElementById('epg-path');
             const modalPath = document.getElementById('epg-modal-path');
@@ -1115,6 +1207,232 @@
 
         function closeMapSuggestionsModal() {
             document.getElementById('mapSuggestionsModal').classList.add('hidden');
+        }
+
+        function syncChannelMapTextarea() {
+            const channelContent = document.getElementById('channel-content');
+            if (channelContent) {
+                channelContent.value = JSON.stringify(normalizeChannelMap(_channelMapState.draftMap), null, 2);
+            }
+        }
+
+        function getFilteredChannelMapEntries() {
+            const term = (_channelMapState.searchTerm || '').trim().toLowerCase();
+            const entries = normalizeChannelMap(_channelMapState.draftMap).channels.map((entry, index) => ({
+                entry,
+                index,
+                channelId: String(entry?.channel?.channelId || '').trim(),
+                name: String(entry?.channel?.name || '').trim()
+            }));
+
+            if (!term) {
+                return entries;
+            }
+
+            return entries.filter(item =>
+                item.channelId.toLowerCase().includes(term) ||
+                item.name.toLowerCase().includes(term)
+            );
+        }
+
+        function renderChannelMapList() {
+            const list = document.getElementById('channel-inline-list');
+            const summary = document.getElementById('channel-inline-editor-summary');
+
+            if (!list || !summary) return;
+
+            const normalizedDraft = normalizeChannelMap(_channelMapState.draftMap);
+            const entries = getFilteredChannelMapEntries();
+            const totalCount = normalizedDraft.channels.length;
+            const filteredCount = entries.length;
+            const searchSuffix = _channelMapState.searchTerm
+                ? ` • Showing ${filteredCount} of ${totalCount}`
+                : '';
+            const unsavedSuffix = hasUnsavedChannelMapChanges() ? ' • Unsaved changes' : '';
+            summary.textContent = `${totalCount} mapping${totalCount === 1 ? '' : 's'} configured${searchSuffix}${unsavedSuffix}`;
+
+            if (entries.length === 0) {
+                list.innerHTML = _channelMapState.searchTerm
+                    ? '<div class="epg-url-empty-state">No mappings match your search.</div>'
+                    : '<div class="epg-url-empty-state">No channel mappings configured yet.</div>';
+                return;
+            }
+
+            list.innerHTML = entries.map(({ entry, index, channelId, name }, rowIndex) => `
+                <div class="${rowIndex % 2 === 0 ? 'channel-map-item channel-map-item-odd' : 'channel-map-item channel-map-item-even'}">
+                    <div class="channel-map-item-content">
+                        <div class="channel-map-index">${index + 1}</div>
+                        <div class="channel-map-values">
+                            <div class="channel-map-value-row">
+                                <span class="channel-map-value-label">ID</span>
+                                <span class="channel-map-value-text">${escapeHtml(channelId || '—')}</span>
+                            </div>
+                            <div class="channel-map-value-row">
+                                <span class="channel-map-value-label">Name</span>
+                                <span class="channel-map-value-text">${escapeHtml(name || '—')}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="channel-map-item-actions">
+                        <button
+                            type="button"
+                            class="channel-map-edit-button"
+                            onclick="openChannelMapEditModal(${index})"
+                            aria-label="Edit mapping ${index + 1}">
+                            Edit
+                        </button>
+                        <button
+                            type="button"
+                            class="epg-url-remove-button"
+                            onclick="removeChannelMapEntry(${index})"
+                            aria-label="Remove mapping ${index + 1}">
+                            x
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateChannelMapViews() {
+            syncChannelMapTextarea();
+            renderChannelMapList();
+            updateChannelMapPendingNotice();
+        }
+
+        function updateChannelMapSearch(value) {
+            _channelMapState.searchTerm = String(value || '');
+            renderChannelMapList();
+        }
+
+        function openChannelMapEditModal(index) {
+            const normalizedDraft = normalizeChannelMap(_channelMapState.draftMap);
+            if (index < 0 || index >= normalizedDraft.channels.length) {
+                return;
+            }
+
+            const entry = normalizedDraft.channels[index];
+            _channelMapState.editingIndex = index;
+            document.getElementById('channel-map-edit-id').value = String(entry?.channel?.channelId || '').trim();
+            document.getElementById('channel-map-edit-name').value = String(entry?.channel?.name || '').trim();
+            document.getElementById('channel-map-edit-status').classList.add('hidden');
+            document.getElementById('channelMapEditModal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('channel-map-edit-id')?.focus(), 0);
+        }
+
+        function closeChannelMapEditModal() {
+            _channelMapState.editingIndex = -1;
+            document.getElementById('channelMapEditModal').classList.add('hidden');
+            document.getElementById('channel-map-edit-status').classList.add('hidden');
+        }
+
+        function handleChannelMapEditKey(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                saveChannelMapEdit();
+            }
+        }
+
+        async function saveChannelMapEdit() {
+            const normalizedDraft = normalizeChannelMap(_channelMapState.draftMap);
+            const index = _channelMapState.editingIndex;
+            if (index < 0 || index >= normalizedDraft.channels.length) {
+                showStatus('channel-map-edit-status', 'That mapping could not be found.', 'error');
+                return;
+            }
+
+            const channelId = String(document.getElementById('channel-map-edit-id')?.value || '').trim();
+            const name = String(document.getElementById('channel-map-edit-name')?.value || '').trim();
+
+            if (!name) {
+                showStatus('channel-map-edit-status', 'Enter a display name before saving.', 'warning');
+                return;
+            }
+
+            const duplicate = channelId
+                ? normalizedDraft.channels.some((entry, entryIndex) =>
+                    entryIndex !== index &&
+                    String(entry?.channel?.channelId || '').trim().toLowerCase() === channelId.toLowerCase()
+                )
+                : false;
+
+            if (duplicate) {
+                showStatus('channel-map-edit-status', `${channelId} is already used by another mapping.`, 'warning');
+                return;
+            }
+
+            normalizedDraft.channels[index] = {
+                channel: {
+                    channelId,
+                    name
+                }
+            };
+
+            _channelMapState.draftMap = normalizedDraft;
+            updateChannelMapViews();
+            const saved = await saveChannelMap();
+            if (saved) {
+                closeChannelMapEditModal();
+            }
+        }
+
+        function handleInlineChannelMapInputKey(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                addInlineChannelMapping();
+            }
+        }
+
+        function addInlineChannelMapping() {
+            const idInput = document.getElementById('channel-inline-id-input');
+            const nameInput = document.getElementById('channel-inline-name-input');
+            const channelId = String(idInput?.value || '').trim();
+            const name = String(nameInput?.value || '').trim();
+
+            if (!name) {
+                showStatus('channel-status', 'Enter a display name before adding a mapping.', 'warning');
+                return;
+            }
+
+            const normalizedDraft = normalizeChannelMap(_channelMapState.draftMap);
+            const duplicate = channelId
+                ? normalizedDraft.channels.some(entry =>
+                    String(entry?.channel?.channelId || '').trim().toLowerCase() === channelId.toLowerCase()
+                )
+                : false;
+
+            if (duplicate) {
+                showStatus('channel-status', `${channelId} is already in the channel map list.`, 'warning');
+                return;
+            }
+
+            normalizedDraft.channels.push({
+                channel: {
+                    channelId,
+                    name
+                }
+            });
+
+            _channelMapState.draftMap = normalizedDraft;
+            updateChannelMapViews();
+            idInput.value = '';
+            nameInput.value = '';
+            showStatus('channel-status', `Added ${name} (${channelId}) to the channel map list. Save Mapping to persist it.`, 'success');
+            idInput.focus();
+        }
+
+        function removeChannelMapEntry(index) {
+            const normalizedDraft = normalizeChannelMap(_channelMapState.draftMap);
+            if (index < 0 || index >= normalizedDraft.channels.length) {
+                return;
+            }
+
+            const removed = normalizedDraft.channels.splice(index, 1)[0];
+            _channelMapState.draftMap = normalizedDraft;
+            updateChannelMapViews();
+
+            const channelId = String(removed?.channel?.channelId || '').trim();
+            const name = String(removed?.channel?.name || '').trim();
+            showStatus('channel-status', `Removed ${name || channelId || 'mapping'} from the channel map list. Save Mapping to persist it.`, 'success');
         }
 
         // Global guide data storage
@@ -1789,28 +2107,27 @@
 
         // Load channel map
         async function loadChannelMap() {
-            const channelContent = document.getElementById('channel-content');
             const channelPath = document.getElementById('channel-path');
-            const container = channelContent?.parentElement;
+            const container = document.querySelector('#channel-mapping-section .card-body');
 
             try {
                 container?.classList.add('loading');
 
                 const response = await apiCall('channel-map');
+                let parsed;
 
-                let formatted;
                 try {
-                    const parsed =
+                    parsed =
                         typeof response.content === 'string'
                             ? JSON.parse(response.content)
                             : response.content;
-
-                    formatted = JSON.stringify(parsed, null, 2);
                 } catch {
                     throw new Error('Invalid JSON returned from server');
                 }
 
-                channelContent.value = formatted;
+                _channelMapState.persistedMap = normalizeChannelMap(parsed);
+                _channelMapState.draftMap = cloneChannelMap(_channelMapState.persistedMap);
+                updateChannelMapViews();
                 channelPath.textContent = response.path;
 
                 showStatus('channel-status', 'Channel map loaded successfully', 'success');
@@ -1828,7 +2145,7 @@
         // Validate JSON
         async function validateJson() {
             try {
-                const content = document.getElementById('channel-content').value;
+                const content = JSON.stringify(normalizeChannelMap(_channelMapState.draftMap), null, 2);
                 const response = await apiCall('validate-json', 'POST', { content });
                 
                 if (response.valid) {
@@ -1845,8 +2162,8 @@
         // Save channel map
         async function saveChannelMap() {
             try {
-                const content = document.getElementById('channel-content').value;
-                const container = document.getElementById('channel-content').parentElement;
+                const content = JSON.stringify(normalizeChannelMap(_channelMapState.draftMap), null, 2);
+                const container = document.querySelector('#channel-mapping-section .card-body');
                 container.classList.add('loading');
                 
                 const response = await apiCall('channel-map', 'POST', { content });
@@ -1858,7 +2175,10 @@
                         (response.details ? '. ' + response.details : ''),
                         'error'
                     );
+                    return false;
                 } else {
+                    _channelMapState.persistedMap = cloneChannelMap(_channelMapState.draftMap);
+                    updateChannelMapViews();
                     const statusType = response.warnings?.length > 0 ? 'warning' : 'success';
                     showStatus(
                         'channel-status',
@@ -1867,6 +2187,7 @@
                         true
                     );
                     await loadStatus(); // Refresh status
+                    return true;
                 }
             } catch (error) {
                 showStatus(
@@ -1874,8 +2195,9 @@
                     'Error saving channel map: ' + error.message,
                     'error'
                 );
+                return false;
             } finally {
-                const container = document.getElementById('channel-content').parentElement;
+                const container = document.querySelector('#channel-mapping-section .card-body');
                 container.classList.remove('loading');
             }
         }
@@ -2452,19 +2774,12 @@
         }
 
         function readChannelMapEditor() {
-            const channelContent = document.getElementById('channel-content');
-            const rawContent = channelContent.value.trim() || '{"channels": []}';
-            const parsed = JSON.parse(rawContent);
-
-            if (!Array.isArray(parsed.channels)) {
-                parsed.channels = [];
-            }
-
-            return parsed;
+            return normalizeChannelMap(_channelMapState.draftMap);
         }
 
         function writeChannelMapEditor(channelMap) {
-            document.getElementById('channel-content').value = JSON.stringify(channelMap, null, 2);
+            _channelMapState.draftMap = normalizeChannelMap(channelMap);
+            updateChannelMapViews();
         }
 
         function getChannelEntryId(entry) {
