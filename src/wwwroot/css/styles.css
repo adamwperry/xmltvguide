@@ -461,6 +461,46 @@ textarea::placeholder {
     box-shadow: none;
 }
 
+.epg-sources-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.epg-sources-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.epg-sources-add-row {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+}
+
+.epg-sources-search {
+    width: 100%;
+    min-height: 42px;
+    padding: 0 14px;
+    color: #ffffff;
+    background: rgba(18, 14, 35, 0.92);
+    border: 1px solid rgba(168, 85, 247, 0.35);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.epg-sources-search::placeholder {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.epg-sources-search:focus {
+    outline: none;
+    border-color: #a855f7;
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.18);
+}
+
 .button-group {
     display: flex;
     gap: 10px;
@@ -1700,6 +1740,10 @@ a img.btn-icon {
     padding-right: 4px;
 }
 
+.epg-url-list-inline {
+    max-height: 320px;
+}
+
 .epg-url-item {
     display: flex;
     align-items: flex-start;
@@ -1709,6 +1753,17 @@ a img.btn-icon {
     background: rgba(255, 255, 255, 0.045);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
+}
+
+.epg-url-item-odd {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.epg-url-item-even {
+    background: linear-gradient(135deg, rgba(91, 33, 182, 0.32), rgba(124, 58, 237, 0.22));
+    border-color: rgba(168, 85, 247, 0.34);
+    box-shadow: inset 0 0 0 1px rgba(168, 85, 247, 0.12);
 }
 
 .epg-url-item-content {
@@ -1734,6 +1789,24 @@ a img.btn-icon {
     font-size: 13px;
     line-height: 1.45;
     word-break: break-all;
+}
+
+.epg-url-value-wrap {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.epg-url-link {
+    color: #e9d5ff;
+    text-decoration: none;
+    font-size: 13px;
+    line-height: 1.45;
+    word-break: break-all;
+}
+
+.epg-url-link:hover {
+    color: #ffffff;
+    text-decoration: underline;
 }
 
 .epg-url-remove-button {
@@ -1762,8 +1835,15 @@ a img.btn-icon {
 }
 
 @media (max-width: 720px) {
+    .epg-sources-add-row,
     .epg-urls-input-row {
         flex-direction: column;
+    }
+
+    .epg-sources-search,
+    .epg-url-input,
+    .epg-url-add-button {
+        width: 100%;
     }
 
     .epg-url-add-button {
@@ -2319,6 +2399,7 @@ a img.btn-icon {
 .sidebar,
 textarea,
 .cron-logs-container,
+.epg-url-list,
 .guide-preview-modal-body,
 .channel-preview-modal-body,
 .map-suggestions-modal-body {
@@ -2329,6 +2410,7 @@ textarea,
 .sidebar::-webkit-scrollbar,
 textarea::-webkit-scrollbar,
 .cron-logs-container::-webkit-scrollbar,
+.epg-url-list::-webkit-scrollbar,
 .guide-preview-modal-body::-webkit-scrollbar,
 .channel-preview-modal-body::-webkit-scrollbar,
 .map-suggestions-modal-body::-webkit-scrollbar {
@@ -2339,6 +2421,7 @@ textarea::-webkit-scrollbar,
 .sidebar::-webkit-scrollbar-track,
 textarea::-webkit-scrollbar-track,
 .cron-logs-container::-webkit-scrollbar-track,
+.epg-url-list::-webkit-scrollbar-track,
 .guide-preview-modal-body::-webkit-scrollbar-track,
 .channel-preview-modal-body::-webkit-scrollbar-track,
 .map-suggestions-modal-body::-webkit-scrollbar-track {
@@ -2349,6 +2432,7 @@ textarea::-webkit-scrollbar-track,
 .sidebar::-webkit-scrollbar-thumb,
 textarea::-webkit-scrollbar-thumb,
 .cron-logs-container::-webkit-scrollbar-thumb,
+.epg-url-list::-webkit-scrollbar-thumb,
 .guide-preview-modal-body::-webkit-scrollbar-thumb,
 .channel-preview-modal-body::-webkit-scrollbar-thumb,
 .map-suggestions-modal-body::-webkit-scrollbar-thumb {
@@ -2360,6 +2444,7 @@ textarea::-webkit-scrollbar-thumb,
 .sidebar::-webkit-scrollbar-thumb:hover,
 textarea::-webkit-scrollbar-thumb:hover,
 .cron-logs-container::-webkit-scrollbar-thumb:hover,
+.epg-url-list::-webkit-scrollbar-thumb:hover,
 .guide-preview-modal-body::-webkit-scrollbar-thumb:hover,
 .channel-preview-modal-body::-webkit-scrollbar-thumb:hover,
 .map-suggestions-modal-body::-webkit-scrollbar-thumb:hover {
@@ -2369,6 +2454,7 @@ textarea::-webkit-scrollbar-thumb:hover,
 .sidebar::-webkit-scrollbar-corner,
 textarea::-webkit-scrollbar-corner,
 .cron-logs-container::-webkit-scrollbar-corner,
+.epg-url-list::-webkit-scrollbar-corner,
 .guide-preview-modal-body::-webkit-scrollbar-corner,
 .channel-preview-modal-body::-webkit-scrollbar-corner,
 .map-suggestions-modal-body::-webkit-scrollbar-corner {

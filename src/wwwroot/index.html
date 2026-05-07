@@ -131,10 +131,21 @@
                 <div class="card-body">
                     <div class="file-path" id="epg-path">Loading...</div>
                     <div id="epg-status" class="status hidden"></div>
-                    <textarea id="epg-content" class="readonly-listing" placeholder="No EPG URLs configured yet." readonly></textarea>
+                    <div id="epg-pending-status" class="status status-warning hidden"></div>
+                    <div class="epg-sources-editor">
+                        <div class="epg-sources-toolbar">
+                            <div class="epg-sources-add-row">
+                                <input type="text" id="epg-inline-url-input" class="epg-url-input" placeholder="https://example.com/guide.xml" onkeydown="handleInlineEpgUrlInputKey(event)">
+                                <button type="button" class="btn-success epg-url-add-button" onclick="addInlineEpgUrl()">Add URL</button>
+                            </div>
+                            <input type="search" id="epg-inline-search" class="epg-sources-search" placeholder="Search URLs..." oninput="updateEpgUrlSearch(this.value)">
+                        </div>
+                        <div class="epg-url-editor-summary" id="epg-inline-editor-summary"></div>
+                        <div class="epg-url-list epg-url-list-inline" id="epg-inline-url-list"></div>
+                    </div>
                     <div class="button-group">
                         <button onclick="loadEpgUrls()" class="btn-secondary"><img src="/images/icons/iconRefresh.svg" alt="Reload" class="btn-icon"> Reload</button>
-                        <button onclick="openEpgUrlsModal()" class="btn-primary" id="edit-epg-urls-btn"><img src="/images/icons/iconSave.svg" alt="Edit" class="btn-icon"> Edit URLs</button>
+                        <button onclick="saveInlineEpgUrls()" class="btn-primary" id="save-epg-urls-btn"><img src="/images/icons/iconSave.svg" alt="Save" class="btn-icon"> Save URLs</button>
                         <button onclick="testEpgUrls()" class="btn-success" id="test-sources-btn"><img src="/images/icons/iconValidate.svg" alt="Test" class="btn-icon"> Test Sources</button>
                     </div>
                 </div>
@@ -450,6 +461,7 @@
             persistedUrls: [],
             draftUrls: [],
             path: '',
+            searchTerm: '',
             unsavedChoiceResolver: null
         };
 
@@ -772,6 +784,18 @@
             return (urls || []).map(url => String(url).trim()).filter(Boolean).join('\n');
         }
 
+        function resolveEpgUrl(url) {
+            let resolvedUrl = String(url || '');
+            const unixTime = Math.floor(Date.now() / 1000).toString();
+            const monthYear = new Date().toISOString().slice(0, 7);
+
+            resolvedUrl = resolvedUrl.replaceAll('{unixtime}', unixTime);
+            resolvedUrl = resolvedUrl.replaceAll('{monthyear}', monthYear);
+            resolvedUrl = resolvedUrl.replaceAll('{yearmonth}', monthYear);
+
+            return resolvedUrl;
+        }
+
         function cloneUrlList(urls) {
             return Array.isArray(urls) ? urls.slice() : [];
         }
@@ -788,14 +812,24 @@
             return !areUrlListsEqual(_epgUrlState.persistedUrls, _epgUrlState.draftUrls);
         }
 
+        function updateEpgPendingNotice() {
+            const pendingElement = document.getElementById('epg-pending-status');
+            if (!pendingElement) return;
+
+            if (hasUnsavedEpgUrlChanges()) {
+                pendingElement.classList.remove('hidden', 'status-info', 'status-success', 'status-error');
+                pendingElement.classList.add('status', 'status-warning');
+                pendingElement.textContent = 'You have pending EPG URL changes. Save URLs to apply them.';
+                return;
+            }
+
+            pendingElement.classList.add('hidden');
+            pendingElement.textContent = '';
+        }
+
         function updateReadonlyEpgUrlListing() {
-            const epgContent = document.getElementById('epg-content');
             const epgPath = document.getElementById('epg-path');
             const modalPath = document.getElementById('epg-modal-path');
-
-            if (epgContent) {
-                epgContent.value = formatEpgUrlContent(_epgUrlState.persistedUrls);
-            }
 
             if (epgPath) {
                 epgPath.textContent = _epgUrlState.path || 'Not configured';
@@ -804,6 +838,74 @@
             if (modalPath) {
                 modalPath.textContent = _epgUrlState.path || 'Not configured';
             }
+        }
+
+        function getFilteredInlineEpgUrls() {
+            const term = (_epgUrlState.searchTerm || '').trim().toLowerCase();
+            if (!term) {
+                return _epgUrlState.draftUrls.map((url, index) => ({ url, index }));
+            }
+
+            return _epgUrlState.draftUrls
+                .map((url, index) => ({ url, index }))
+                .filter(entry => entry.url.toLowerCase().includes(term));
+        }
+
+        function buildEpgUrlListMarkup(entries) {
+            return entries.map(({ url, index }) => {
+                const resolvedUrl = resolveEpgUrl(url);
+                const itemClass = index % 2 === 0 ? 'epg-url-item epg-url-item-odd' : 'epg-url-item epg-url-item-even';
+
+                return `
+                    <div class="${itemClass}">
+                        <div class="epg-url-item-content">
+                            <div class="epg-url-index">${index + 1}</div>
+                            <div class="epg-url-value-wrap">
+                                <a
+                                    class="epg-url-link"
+                                    href="${escapeHtml(resolvedUrl)}"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="${escapeHtml(`Open resolved URL: ${resolvedUrl}`)}">
+                                    ${escapeHtml(url)}
+                                </a>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            class="epg-url-remove-button"
+                            onclick="removeEpgUrlDraft(${index})"
+                            aria-label="Remove URL ${index + 1}">
+                            x
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderInlineEpgUrlList() {
+            const list = document.getElementById('epg-inline-url-list');
+            const summary = document.getElementById('epg-inline-editor-summary');
+
+            if (!list || !summary) return;
+
+            const filteredEntries = getFilteredInlineEpgUrls();
+            const totalCount = _epgUrlState.draftUrls.length;
+            const filteredCount = filteredEntries.length;
+            const searchSuffix = _epgUrlState.searchTerm
+                ? ` • Showing ${filteredCount} of ${totalCount}`
+                : '';
+            const unsavedSuffix = hasUnsavedEpgUrlChanges() ? ' • Unsaved changes' : '';
+            summary.textContent = `${totalCount} URL${totalCount === 1 ? '' : 's'} configured${searchSuffix}${unsavedSuffix}`;
+
+            if (filteredEntries.length === 0) {
+                list.innerHTML = _epgUrlState.searchTerm
+                    ? '<div class="epg-url-empty-state">No URLs match your search.</div>'
+                    : '<div class="epg-url-empty-state">No EPG URLs configured yet.</div>';
+                return;
+            }
+
+            list.innerHTML = buildEpgUrlListMarkup(filteredEntries);
         }
 
         function renderEpgUrlDraftList() {
@@ -820,21 +922,52 @@
                 return;
             }
 
-            list.innerHTML = _epgUrlState.draftUrls.map((url, index) => `
-                <div class="epg-url-item">
-                    <div class="epg-url-item-content">
-                        <div class="epg-url-index">${index + 1}</div>
-                        <div class="epg-url-value">${escapeHtml(url)}</div>
-                    </div>
-                    <button
-                        type="button"
-                        class="epg-url-remove-button"
-                        onclick="removeEpgUrlDraft(${index})"
-                        aria-label="Remove URL ${index + 1}">
-                        x
-                    </button>
-                </div>
-            `).join('');
+            list.innerHTML = buildEpgUrlListMarkup(_epgUrlState.draftUrls.map((url, index) => ({ url, index })));
+        }
+
+        function updateAllEpgUrlViews() {
+            updateReadonlyEpgUrlListing();
+            renderInlineEpgUrlList();
+            renderEpgUrlDraftList();
+            updateEpgPendingNotice();
+        }
+
+        function updateEpgUrlSearch(value) {
+            _epgUrlState.searchTerm = String(value || '');
+            renderInlineEpgUrlList();
+        }
+
+        function handleInlineEpgUrlInputKey(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                addInlineEpgUrl();
+            }
+        }
+
+        function addInlineEpgUrl() {
+            const input = document.getElementById('epg-inline-url-input');
+            const value = (input?.value || '').trim();
+
+            if (!value) {
+                showStatus('epg-status', 'Enter a URL before adding it.', 'warning');
+                return;
+            }
+
+            if (value.startsWith('#')) {
+                showStatus('epg-status', 'The list accepts URL entries only.', 'warning');
+                return;
+            }
+
+            if (_epgUrlState.draftUrls.includes(value)) {
+                showStatus('epg-status', 'That URL is already in the list.', 'warning');
+                return;
+            }
+
+            _epgUrlState.draftUrls.push(value);
+            input.value = '';
+            updateAllEpgUrlViews();
+            showStatus('epg-status', 'URL added to the list.', 'success');
+            input.focus();
         }
 
         function openEpgUrlsModal() {
@@ -931,8 +1064,9 @@
             }
 
             _epgUrlState.draftUrls.splice(index, 1);
-            renderEpgUrlDraftList();
+            updateAllEpgUrlViews();
             showStatus('epg-modal-status', 'URL removed from the draft list.', 'success');
+            showStatus('epg-status', 'URL removed from the list.', 'success');
         }
 
         async function loadChannelSettings() {
@@ -1565,8 +1699,7 @@
 
         // Load EPG URLs
         async function loadEpgUrls() {
-            const epgContent = document.getElementById('epg-content');
-            const container = epgContent?.parentElement;
+            const container = document.querySelector('#epg-sources-section .card-body');
 
             try {
                 container?.classList.add('loading');
@@ -1580,8 +1713,7 @@
                 _epgUrlState.persistedUrls = parseEpgUrlContent(response.content);
                 _epgUrlState.draftUrls = cloneUrlList(_epgUrlState.persistedUrls);
                 _epgUrlState.path = response.path;
-                updateReadonlyEpgUrlListing();
-                renderEpgUrlDraftList();
+                updateAllEpgUrlViews();
 
                 showStatus('epg-status', 'EPG URLs loaded successfully', 'success');
             } catch (error) {
@@ -1597,8 +1729,7 @@
 
         // Save EPG URLs
         async function saveEpgUrls(contentOverride = null, statusElementId = 'epg-status') {
-            const epgContent = document.getElementById('epg-content');
-            const container = epgContent?.parentElement;
+            const container = document.querySelector('#epg-sources-section .card-body');
 
             try {
                 container?.classList.add('loading');
@@ -1630,7 +1761,7 @@
                 }
                 _epgUrlState.persistedUrls = parseEpgUrlContent(content);
                 _epgUrlState.draftUrls = cloneUrlList(_epgUrlState.persistedUrls);
-                updateReadonlyEpgUrlListing();
+                updateAllEpgUrlViews();
                 await loadStatus(); // refresh status
                 return true;
             } catch (error) {
@@ -1648,6 +1779,10 @@
                 closeEpgUrlsModalImmediate();
             }
             return saved;
+        }
+
+        async function saveInlineEpgUrls() {
+            await saveEpgUrls(formatEpgUrlContent(_epgUrlState.draftUrls), 'epg-status');
         }
 
 
@@ -2149,7 +2284,7 @@
 
         // Test EPG sources for reachability and format support
         async function testEpgUrls() {
-            const urls = cloneUrlList(_epgUrlState.persistedUrls);
+            const urls = cloneUrlList(_epgUrlState.draftUrls);
 
             if (urls.length === 0) {
                 showToast('Please enter at least one URL.', 'warning');
@@ -2735,7 +2870,7 @@
 
         // Preview detected channels from configured sources
         async function previewChannels() {
-            const urls = cloneUrlList(_epgUrlState.persistedUrls);
+            const urls = cloneUrlList(_epgUrlState.draftUrls);
 
             if (urls.length === 0) {
                 showToast('Please enter at least one EPG URL.', 'warning');
