@@ -170,9 +170,25 @@
                         <div class="channel-map-add-row">
                             <input type="text" id="channel-inline-id-input" class="channel-map-field" placeholder="Channel ID" onkeydown="handleInlineChannelMapInputKey(event)">
                             <input type="text" id="channel-inline-name-input" class="channel-map-field channel-map-name-field" placeholder="Display name" onkeydown="handleInlineChannelMapInputKey(event)">
+                            <button type="button" class="btn-secondary channel-map-add-button" onclick="openChannelMapBulkPasteModal()">Bulk Paste</button>
                             <button type="button" class="btn-success channel-map-add-button" onclick="addInlineChannelMapping()">Add Mapping</button>
                         </div>
-                        <input type="search" id="channel-inline-search" class="channel-map-search" placeholder="Search mappings..." oninput="updateChannelMapSearch(this.value)">
+                        <div class="channel-map-tools">
+                            <div class="channel-map-tool-field">
+                                <label for="channel-inline-search" class="channel-map-tool-label">Search</label>
+                                <input type="search" id="channel-inline-search" class="channel-map-search" placeholder="Search mappings..." oninput="updateChannelMapSearch(this.value)">
+                            </div>
+                            <div class="channel-map-tool-field">
+                                <label for="channel-inline-sort" class="channel-map-tool-label">Sort</label>
+                                <select id="channel-inline-sort" class="channel-map-filter" onchange="updateChannelMapSort(this.value)">
+                                    <option value="manual">Manual order</option>
+                                    <option value="recent">Recent edits first</option>
+                                    <option value="blank-id">Blank IDs first</option>
+                                    <option value="name">Display name A-Z</option>
+                                    <option value="id">Channel ID A-Z</option>
+                                </select>
+                            </div>
+                        </div>
                         <div class="channel-map-editor-summary" id="channel-inline-editor-summary"></div>
                         <div class="channel-map-inline-list" id="channel-inline-list"></div>
                     </div>
@@ -380,6 +396,32 @@
         </div>
     </div>
 
+    <!-- Channel Mapping Bulk Paste Modal -->
+    <div id="channelMapBulkPasteModal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeChannelMapBulkPasteModal()"></div>
+        <div class="modal-content channel-map-bulk-modal-content">
+            <div class="modal-header">
+                <h3>Bulk Paste Channel Mappings</h3>
+                <button class="modal-close" onclick="closeChannelMapBulkPasteModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="channel-map-bulk-status" class="status hidden"></div>
+                <div class="channel-map-bulk-help">
+                    Paste one mapping per line. Supported formats: <code>channelId,name</code>, <code>channelId|name</code>, tab-separated values, or just a display name to add a blank-ID entry.
+                </div>
+                <textarea
+                    id="channel-map-bulk-input"
+                    class="channel-map-bulk-input"
+                    placeholder="10179,APW Sports&#10;10201,FLIX&#10;,NBC Boston&#10;NESN"
+                ></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeChannelMapBulkPasteModal()">Cancel</button>
+                <button class="btn-primary" onclick="applyChannelMapBulkPaste()">Add To Editor</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Confirmation Modal -->
     <div id="confirmModal" class="modal hidden">
         <div class="modal-overlay" onclick="closeConfirmModal()"></div>
@@ -501,7 +543,11 @@
             persistedMap: { channels: [] },
             draftMap: { channels: [] },
             searchTerm: '',
-            editingIndex: -1
+            editingIndex: -1,
+            sortMode: 'manual',
+            previewKnownIds: new Set(),
+            recentEditRanks: {},
+            recentEditCounter: 0
         };
 
         // Global ESC key handler to close all modals
@@ -518,6 +564,10 @@
                 }
                 if (!document.getElementById('channelMapEditModal').classList.contains('hidden')) {
                     closeChannelMapEditModal();
+                    return;
+                }
+                if (!document.getElementById('channelMapBulkPasteModal').classList.contains('hidden')) {
+                    closeChannelMapBulkPasteModal();
                     return;
                 }
                 document.getElementById('guidePreviewModal').classList.add('hidden');
@@ -900,6 +950,52 @@
             return JSON.stringify(normalizeChannelMap(channelMap));
         }
 
+        function hasAnyUnsavedChanges() {
+            return hasUnsavedEpgUrlChanges() || hasUnsavedChannelMapChanges();
+        }
+
+        function getChannelMapEntryKey(channelId, name) {
+            return `${String(channelId || '').trim().toLowerCase()}|${String(name || '').trim().toLowerCase()}`;
+        }
+
+        function markChannelMapEntryTouched(channelId, name) {
+            const key = getChannelMapEntryKey(channelId, name);
+            if (!key || key === '|') {
+                return;
+            }
+
+            _channelMapState.recentEditCounter += 1;
+            _channelMapState.recentEditRanks[key] = _channelMapState.recentEditCounter;
+        }
+
+        function getChannelMapEntryWarnings(entry, normalizedDraft = null) {
+            const draft = normalizedDraft || normalizeChannelMap(_channelMapState.draftMap);
+            const channelId = String(entry?.channel?.channelId || '').trim();
+            const name = String(entry?.channel?.name || '').trim();
+            const normalizedId = channelId.toLowerCase();
+            const duplicateCount = normalizedId
+                ? draft.channels.filter(item =>
+                    String(item?.channel?.channelId || '').trim().toLowerCase() === normalizedId
+                ).length
+                : 0;
+
+            const warnings = [];
+            if (!channelId) {
+                warnings.push({ label: 'Blank ID', tone: 'warning' });
+            }
+            if (duplicateCount > 1) {
+                warnings.push({ label: 'Duplicate ID', tone: 'error' });
+            }
+            if (_channelMapState.previewKnownIds?.size && channelId && !_channelMapState.previewKnownIds.has(normalizedId)) {
+                warnings.push({ label: 'Not In Preview', tone: 'warning' });
+            }
+            if (channelId && name && channelId.toLowerCase() === name.toLowerCase()) {
+                warnings.push({ label: 'Name Matches ID', tone: 'warning' });
+            }
+
+            return warnings;
+        }
+
         function hasUnsavedChannelMapChanges() {
             return channelMapSignature(_channelMapState.persistedMap) !== channelMapSignature(_channelMapState.draftMap);
         }
@@ -1225,14 +1321,70 @@
                 name: String(entry?.channel?.name || '').trim()
             }));
 
+            const sortedEntries = entries.slice().sort((left, right) => compareChannelMapEntries(left, right));
+
             if (!term) {
-                return entries;
+                return sortedEntries;
             }
 
-            return entries.filter(item =>
+            return sortedEntries.filter(item =>
                 item.channelId.toLowerCase().includes(term) ||
                 item.name.toLowerCase().includes(term)
             );
+        }
+
+        function compareChannelMapEntries(left, right) {
+            const sortMode = _channelMapState.sortMode || 'manual';
+            const leftId = left.channelId.toLowerCase();
+            const rightId = right.channelId.toLowerCase();
+            const leftName = left.name.toLowerCase();
+            const rightName = right.name.toLowerCase();
+
+            if (sortMode === 'recent') {
+                const leftRank = _channelMapState.recentEditRanks[getChannelMapEntryKey(left.channelId, left.name)] || 0;
+                const rightRank = _channelMapState.recentEditRanks[getChannelMapEntryKey(right.channelId, right.name)] || 0;
+                if (leftRank !== rightRank) {
+                    return rightRank - leftRank;
+                }
+            }
+
+            if (sortMode === 'blank-id') {
+                const leftBlank = left.channelId ? 0 : 1;
+                const rightBlank = right.channelId ? 0 : 1;
+                if (leftBlank !== rightBlank) {
+                    return rightBlank - leftBlank;
+                }
+                const nameComparison = leftName.localeCompare(rightName);
+                if (nameComparison !== 0) {
+                    return nameComparison;
+                }
+            }
+
+            if (sortMode === 'name') {
+                const byName = leftName.localeCompare(rightName);
+                if (byName !== 0) {
+                    return byName;
+                }
+                const byId = leftId.localeCompare(rightId, undefined, { numeric: true });
+                if (byId !== 0) {
+                    return byId;
+                }
+            }
+
+            if (sortMode === 'id') {
+                const leftSortId = leftId || '\uffff';
+                const rightSortId = rightId || '\uffff';
+                const byId = leftSortId.localeCompare(rightSortId, undefined, { numeric: true });
+                if (byId !== 0) {
+                    return byId;
+                }
+                const byName = leftName.localeCompare(rightName);
+                if (byName !== 0) {
+                    return byName;
+                }
+            }
+
+            return left.index - right.index;
         }
 
         function renderChannelMapList() {
@@ -1249,7 +1401,11 @@
                 ? ` • Showing ${filteredCount} of ${totalCount}`
                 : '';
             const unsavedSuffix = hasUnsavedChannelMapChanges() ? ' • Unsaved changes' : '';
-            summary.textContent = `${totalCount} mapping${totalCount === 1 ? '' : 's'} configured${searchSuffix}${unsavedSuffix}`;
+            const warningCount = normalizedDraft.channels.reduce((sum, item) => sum + (getChannelMapEntryWarnings(item, normalizedDraft).length > 0 ? 1 : 0), 0);
+            const warningSuffix = warningCount > 0
+                ? ` • ${warningCount} row${warningCount === 1 ? '' : 's'} with warnings`
+                : '';
+            summary.textContent = `${totalCount} mapping${totalCount === 1 ? '' : 's'} configured${searchSuffix}${unsavedSuffix}${warningSuffix}`;
 
             if (entries.length === 0) {
                 list.innerHTML = _channelMapState.searchTerm
@@ -1258,7 +1414,17 @@
                 return;
             }
 
-            list.innerHTML = entries.map(({ entry, index, channelId, name }, rowIndex) => `
+            list.innerHTML = entries.map(({ entry, index, channelId, name }, rowIndex) => {
+                const warnings = getChannelMapEntryWarnings(entry, normalizedDraft);
+                const warningMarkup = warnings.length > 0
+                    ? `
+                        <div class="channel-map-row-badges">
+                            ${warnings.map(warning => `<span class="channel-map-filter-badge badge-${warning.tone}">${escapeHtml(warning.label)}</span>`).join('')}
+                        </div>
+                    `
+                    : '';
+
+                return `
                 <div class="${rowIndex % 2 === 0 ? 'channel-map-item channel-map-item-odd' : 'channel-map-item channel-map-item-even'}">
                     <div class="channel-map-item-content">
                         <div class="channel-map-index">${index + 1}</div>
@@ -1271,6 +1437,7 @@
                                 <span class="channel-map-value-label">Name</span>
                                 <span class="channel-map-value-text">${escapeHtml(name || '—')}</span>
                             </div>
+                            ${warningMarkup}
                         </div>
                     </div>
                     <div class="channel-map-item-actions">
@@ -1290,17 +1457,27 @@
                         </button>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
 
         function updateChannelMapViews() {
             syncChannelMapTextarea();
+            const sortSelect = document.getElementById('channel-inline-sort');
+            if (sortSelect && sortSelect.value !== _channelMapState.sortMode) {
+                sortSelect.value = _channelMapState.sortMode;
+            }
             renderChannelMapList();
             updateChannelMapPendingNotice();
         }
 
         function updateChannelMapSearch(value) {
             _channelMapState.searchTerm = String(value || '');
+            renderChannelMapList();
+        }
+
+        function updateChannelMapSort(value) {
+            _channelMapState.sortMode = String(value || 'manual');
             renderChannelMapList();
         }
 
@@ -1323,6 +1500,139 @@
             _channelMapState.editingIndex = -1;
             document.getElementById('channelMapEditModal').classList.add('hidden');
             document.getElementById('channel-map-edit-status').classList.add('hidden');
+        }
+
+        function openChannelMapBulkPasteModal() {
+            document.getElementById('channel-map-bulk-input').value = '';
+            document.getElementById('channel-map-bulk-status').classList.add('hidden');
+            document.getElementById('channelMapBulkPasteModal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('channel-map-bulk-input')?.focus(), 0);
+        }
+
+        function closeChannelMapBulkPasteModal() {
+            document.getElementById('channelMapBulkPasteModal').classList.add('hidden');
+            document.getElementById('channel-map-bulk-status').classList.add('hidden');
+        }
+
+        function stripWrappedQuotes(value) {
+            const trimmed = String(value || '').trim();
+            if (trimmed.length >= 2 && (
+                (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+                (trimmed.startsWith("'") && trimmed.endsWith("'"))
+            )) {
+                return trimmed.slice(1, -1).trim();
+            }
+
+            return trimmed;
+        }
+
+        function parseBulkChannelMapLine(line) {
+            const text = String(line || '').trim();
+            if (!text || text.startsWith('#')) {
+                return null;
+            }
+
+            const separators = ['\t', '|', ','];
+            for (const separator of separators) {
+                const separatorIndex = text.indexOf(separator);
+                if (separatorIndex >= 0) {
+                    const left = stripWrappedQuotes(text.slice(0, separatorIndex));
+                    const right = stripWrappedQuotes(text.slice(separatorIndex + 1));
+                    return { channelId: left, name: right };
+                }
+            }
+
+            return { channelId: '', name: stripWrappedQuotes(text) };
+        }
+
+        async function applyChannelMapBulkPaste() {
+            const input = document.getElementById('channel-map-bulk-input');
+            const rawText = String(input?.value || '');
+            const lines = rawText.split(/\r?\n/);
+            const normalizedDraft = normalizeChannelMap(_channelMapState.draftMap);
+            const existingIds = new Set(
+                normalizedDraft.channels
+                    .map(entry => String(entry?.channel?.channelId || '').trim().toLowerCase())
+                    .filter(Boolean)
+            );
+
+            let addedCount = 0;
+            let skippedDuplicateIds = 0;
+            let skippedBlankNames = 0;
+            let skippedHeaderRows = 0;
+
+            for (const line of lines) {
+                const parsed = parseBulkChannelMapLine(line);
+                if (!parsed) {
+                    continue;
+                }
+
+                const channelId = String(parsed.channelId || '').trim();
+                const name = String(parsed.name || '').trim();
+                const lowerId = channelId.toLowerCase();
+                const lowerName = name.toLowerCase();
+
+                const looksLikeHeader = (
+                    (lowerId === 'channel id' || lowerId === 'channelid' || lowerId === 'id' || lowerId === 'channel') &&
+                    (lowerName === 'display name' || lowerName === 'name' || lowerName === 'channel name')
+                );
+                if (looksLikeHeader) {
+                    skippedHeaderRows++;
+                    continue;
+                }
+
+                if (!name) {
+                    skippedBlankNames++;
+                    continue;
+                }
+
+                if (channelId && existingIds.has(lowerId)) {
+                    skippedDuplicateIds++;
+                    continue;
+                }
+
+                normalizedDraft.channels.push({
+                    channel: {
+                        channelId,
+                        name
+                    }
+                });
+
+                if (channelId) {
+                    existingIds.add(lowerId);
+                }
+                markChannelMapEntryTouched(channelId, name);
+                addedCount++;
+            }
+
+            if (addedCount === 0) {
+                const detailParts = [];
+                if (skippedDuplicateIds > 0) detailParts.push(`${skippedDuplicateIds} duplicate ID${skippedDuplicateIds === 1 ? '' : 's'}`);
+                if (skippedBlankNames > 0) detailParts.push(`${skippedBlankNames} blank name${skippedBlankNames === 1 ? '' : 's'}`);
+                if (skippedHeaderRows > 0) detailParts.push(`${skippedHeaderRows} header row${skippedHeaderRows === 1 ? '' : 's'}`);
+
+                showStatus(
+                    'channel-map-bulk-status',
+                    detailParts.length > 0
+                        ? `Nothing was added. Skipped ${detailParts.join(', ')}.`
+                        : 'Nothing was added. Paste at least one mapping line first.',
+                    'warning'
+                );
+                return;
+            }
+
+            _channelMapState.draftMap = normalizedDraft;
+            updateChannelMapViews();
+            closeChannelMapBulkPasteModal();
+
+            const detailParts = [];
+            if (skippedDuplicateIds > 0) detailParts.push(`${skippedDuplicateIds} duplicate ID${skippedDuplicateIds === 1 ? '' : 's'} skipped`);
+            if (skippedBlankNames > 0) detailParts.push(`${skippedBlankNames} blank name${skippedBlankNames === 1 ? '' : 's'} skipped`);
+            if (skippedHeaderRows > 0) detailParts.push(`${skippedHeaderRows} header row${skippedHeaderRows === 1 ? '' : 's'} ignored`);
+            const detailSuffix = detailParts.length > 0 ? ` ${detailParts.join(' • ')}.` : '';
+
+            showStatus('channel-status', `Added ${addedCount} mapping${addedCount === 1 ? '' : 's'} to the editor. Save Mapping to persist them.${detailSuffix}`, 'success');
+            showToast(`Added ${addedCount} mapping${addedCount === 1 ? '' : 's'} to the editor.`, 'success');
         }
 
         function handleChannelMapEditKey(event) {
@@ -1368,6 +1678,7 @@
             };
 
             _channelMapState.draftMap = normalizedDraft;
+            markChannelMapEntryTouched(channelId, name);
             updateChannelMapViews();
             const saved = await saveChannelMap();
             if (saved) {
@@ -1413,6 +1724,7 @@
             });
 
             _channelMapState.draftMap = normalizedDraft;
+            markChannelMapEntryTouched(channelId, name);
             updateChannelMapViews();
             idInput.value = '';
             nameInput.value = '';
@@ -2016,10 +2328,20 @@
 
 
         // Load EPG URLs
-        async function loadEpgUrls() {
+        async function loadEpgUrls(force = false) {
             const container = document.querySelector('#epg-sources-section .card-body');
 
             try {
+                if (!force && hasUnsavedEpgUrlChanges()) {
+                    const shouldContinue = await showConfirmModal(
+                        'Discard URL Changes?',
+                        'Reloading EPG URL sources will discard the unsaved changes in this pane.'
+                    );
+                    if (!shouldContinue) {
+                        return;
+                    }
+                }
+
                 container?.classList.add('loading');
 
                 const response = await apiCall('epg-urls');
@@ -2106,11 +2428,21 @@
 
 
         // Load channel map
-        async function loadChannelMap() {
+        async function loadChannelMap(force = false) {
             const channelPath = document.getElementById('channel-path');
             const container = document.querySelector('#channel-mapping-section .card-body');
 
             try {
+                if (!force && hasUnsavedChannelMapChanges()) {
+                    const shouldContinue = await showConfirmModal(
+                        'Discard Mapping Changes?',
+                        'Reloading Channel Mapping will discard the unsaved changes in this pane.'
+                    );
+                    if (!shouldContinue) {
+                        return;
+                    }
+                }
+
                 container?.classList.add('loading');
 
                 const response = await apiCall('channel-map');
@@ -2267,8 +2599,8 @@
                     throw new Error(result.error || `Restore failed: ${response.status}`);
                 }
 
-                await loadEpgUrls();
-                await loadChannelMap();
+                await loadEpgUrls(true);
+                await loadChannelMap(true);
                 await loadChannelSettings();
                 await loadStatus();
                 showStatus('channel-status', buildChannelMapStatusMessage(result, false), result.warnings?.length > 0 ? 'warning' : 'success', true);
@@ -2841,6 +3173,7 @@
                 }
             });
 
+            markChannelMapEntryTouched(normalizedId, normalizedName);
             writeChannelMapEditor(channelMap);
             markPreviewChannelMapped(normalizedId, normalizedName);
             showStatus('channel-status', `Added ${escapeHtml(normalizedName)} (${escapeHtml(normalizedId)}) to the channel map editor. Save Mapping to persist it.`, 'success');
@@ -3020,6 +3353,7 @@
                         channelId
                     }
                 });
+                markChannelMapEntryTouched(channelId, displayName);
                 existingIds.add(key);
                 markPreviewChannelMapped(channelId, displayName);
                 addedCount++;
@@ -3231,6 +3565,12 @@
                 const totalMapped = successfulPreviews.reduce((sum, r) => sum + (r.mappedChannels || 0), 0);
                 const totalUnmapped = successfulPreviews.reduce((sum, r) => sum + (r.unmappedChannels || 0), 0);
                 const aggregatedChannels = aggregatePreviewChannels(previewResults);
+                _channelMapState.previewKnownIds = new Set(
+                    aggregatedChannels
+                        .map(channel => String(channel.id || '').trim().toLowerCase())
+                        .filter(Boolean)
+                );
+                renderChannelMapList();
                 const aggregatedMapped = aggregatedChannels.filter(channel => channel.isMapped).length;
                 const aggregatedUnmapped = aggregatedChannels.filter(channel => !channel.isMapped).length;
 
@@ -3374,11 +3714,20 @@
             if (!isAuthenticated) return;
 
             await loadStatus();
-            await loadEpgUrls();
-            await loadChannelMap();
+            await loadEpgUrls(true);
+            await loadChannelMap(true);
             await loadChannelSettings();
             await loadCronLogs();
             await loadRebuildHistory();
+        });
+
+        window.addEventListener('beforeunload', function(event) {
+            if (!hasAnyUnsavedChanges()) {
+                return;
+            }
+
+            event.preventDefault();
+            event.returnValue = '';
         });
 
         // Auto-refresh health status every 10 seconds for quick feedback
