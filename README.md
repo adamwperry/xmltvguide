@@ -1,6 +1,6 @@
 # XMLTV Guide Generator
 
-<img width="1468" height="798" alt="image" src="https://github.com/user-attachments/assets/b3889804-b683-4a56-930b-48e8dffdf98b" />
+<img width="1457" height="793" alt="image" src="https://github.com/user-attachments/assets/8a9fb906-108b-44f8-91e8-eafdbf9219e7" />
 
 XMLTV Guide Generator builds an XMLTV-compatible `guide.xml` from one or more EPG source URLs and a channel map. It can run once in headless mode, or as a persistent web UI for managing sources, channel mappings, previews, rebuilds, health checks, cron runs, and config backups.
 
