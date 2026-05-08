@@ -2,9 +2,11 @@ using System.Text.Json;
 using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using xmlTVGuide;
 using xmlTVGuide.Services;
 using xmlTVGuide.Services.ArgumentParser;
@@ -61,6 +63,21 @@ public class StartupProgramTests : IDisposable
         provider.GetService<IBackgroundJobService>().Should().BeOfType<BackgroundJobService>();
         provider.GetService<IValidationService>().Should().BeOfType<ValidationService>();
         provider.GetServices<IGuideParser>().Should().HaveCount(3);
+    }
+
+    [Fact]
+    public void configure_services_registers_forwarded_header_support_for_reverse_proxies()
+    {
+        var services = CreateServiceCollection();
+
+        new Startup().ConfigureServices(services);
+
+        var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<IOptions<ForwardedHeadersOptions>>().Value;
+
+        options.ForwardedHeaders.Should().Be(ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto);
+        options.KnownNetworks.Should().BeEmpty();
+        options.KnownProxies.Should().BeEmpty();
     }
 
     [Fact]
