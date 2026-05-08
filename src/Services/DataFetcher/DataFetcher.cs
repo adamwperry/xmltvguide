@@ -34,7 +34,14 @@ public class DataFetcher : DataFetcherBase
         {
             using var response = await _client.GetAsync(url, cancellationToken);
             if (response.IsSuccessStatusCode)
-                return await response.Content.ReadAsStringAsync(cancellationToken);
+            {
+                var content = await response.Content.ReadAsStringAsync(cancellationToken);
+                var htmlError = DetectUnexpectedHtmlResponse(content);
+                if (htmlError != null)
+                    throw new InvalidOperationException(htmlError);
+
+                return content;
+            }
 
             throw new HttpRequestException($"Failed to fetch data from {url}. Status code: {response.StatusCode}");
         }
@@ -104,6 +111,15 @@ public class DataFetcher : DataFetcherBase
             {
                 result.Data = await response.Content.ReadAsStringAsync(cancellationToken);
                 result.ResponseSize = result.Data.Length;
+                var htmlError = DetectUnexpectedHtmlResponse(result.Data);
+                if (htmlError != null)
+                {
+                    result.Success = false;
+                    result.ErrorMessage = htmlError;
+                    result.Data = null;
+                    return result;
+                }
+
                 result.Success = true;
                 return result;
             }

@@ -44,8 +44,12 @@ public class ValidationServiceTests : IDisposable
         using var server = await LoopbackServer.StartAsync();
 
         var fetcher = new Mock<IDataFetcher>();
-        fetcher.Setup(service => service.FetchDataAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("""{ "channels": [] }""");
+        fetcher.Setup(service => service.FetchDataWithResultAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new FetchResult
+            {
+                Success = true,
+                Data = """{ "channels": [] }"""
+            });
 
         var parser = new StubGuideParser(canParse: true);
         var service = CreateValidationService(fetcher.Object, new[] { parser });
@@ -67,8 +71,12 @@ public class ValidationServiceTests : IDisposable
         using var server = await LoopbackServer.StartAsync();
 
         var fetcher = new Mock<IDataFetcher>();
-        fetcher.Setup(service => service.FetchDataAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("not json");
+        fetcher.Setup(service => service.FetchDataWithResultAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new FetchResult
+            {
+                Success = true,
+                Data = "not json"
+            });
 
         var service = CreateValidationService(fetcher.Object, new[] { new StubGuideParser(canParse: true) });
         var result = await service.TestSourceAsync(server.Url);
@@ -85,8 +93,12 @@ public class ValidationServiceTests : IDisposable
         using var server = await LoopbackServer.StartAsync();
 
         var fetcher = new Mock<IDataFetcher>();
-        fetcher.Setup(service => service.FetchDataAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("""{ "channels": [] }""");
+        fetcher.Setup(service => service.FetchDataWithResultAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new FetchResult
+            {
+                Success = true,
+                Data = """{ "channels": [] }"""
+            });
 
         var service = CreateValidationService(fetcher.Object, new[] { new StubGuideParser(canParse: false) });
         var result = await service.TestSourceAsync(server.Url);
@@ -95,6 +107,27 @@ public class ValidationServiceTests : IDisposable
         result.Format.IsValidJson.Should().BeTrue();
         result.Format.HasRecognizedStructure.Should().BeFalse();
         result.Message.Should().Be("Source format is not recognized by any parser");
+    }
+
+    [Fact]
+    public async Task TestSourceAsync_WithHumanVerificationHtml_ReturnsSpecificMessage()
+    {
+        using var server = await LoopbackServer.StartAsync();
+
+        var fetcher = new Mock<IDataFetcher>();
+        fetcher.Setup(service => service.FetchDataWithResultAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new FetchResult
+            {
+                Success = false,
+                ErrorMessage = "Source returned an HTML human-verification page instead of JSON data."
+            });
+
+        var service = CreateValidationService(fetcher.Object, new[] { new StubGuideParser(canParse: true) });
+        var result = await service.TestSourceAsync(server.Url);
+
+        result.Success.Should().BeFalse();
+        result.Reachability.IsReachable.Should().BeTrue();
+        result.Message.Should().Be("Source returned an HTML human-verification page instead of JSON data.");
     }
 
     [Fact]
@@ -191,8 +224,12 @@ public class ValidationServiceTests : IDisposable
     public async Task PreviewChannelsAsync_WithInvalidJson_ReturnsErrorMessage()
     {
         var fetcher = new Mock<IDataFetcher>();
-        fetcher.Setup(service => service.FetchDataAsync("source", It.IsAny<CancellationToken>()))
-            .ReturnsAsync("not json");
+        fetcher.Setup(service => service.FetchDataWithResultAsync("source", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new FetchResult
+            {
+                Success = true,
+                Data = "not json"
+            });
 
         var service = CreateValidationService(fetcher.Object, new[] { new StubGuideParser(canParse: true) });
 
@@ -221,14 +258,36 @@ public class ValidationServiceTests : IDisposable
     public async Task PreviewChannelsAsync_WithNoMatchingParser_ReturnsParserMessage()
     {
         var fetcher = new Mock<IDataFetcher>();
-        fetcher.Setup(service => service.FetchDataAsync("source", It.IsAny<CancellationToken>()))
-            .ReturnsAsync("""{ "channels": [] }""");
+        fetcher.Setup(service => service.FetchDataWithResultAsync("source", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new FetchResult
+            {
+                Success = true,
+                Data = """{ "channels": [] }"""
+            });
 
         var service = CreateValidationService(fetcher.Object, new[] { new StubGuideParser(canParse: false) });
         var result = await service.PreviewChannelsAsync("source", null);
 
         result.Success.Should().BeFalse();
         result.Message.Should().Be("No parser can handle this source format");
+    }
+
+    [Fact]
+    public async Task PreviewChannelsAsync_WithHumanVerificationHtml_ReturnsSpecificMessage()
+    {
+        var fetcher = new Mock<IDataFetcher>();
+        fetcher.Setup(service => service.FetchDataWithResultAsync("source", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new FetchResult
+            {
+                Success = false,
+                ErrorMessage = "Source returned an HTML human-verification page instead of JSON data."
+            });
+
+        var service = CreateValidationService(fetcher.Object, new[] { new StubGuideParser(canParse: true) });
+        var result = await service.PreviewChannelsAsync("source", null);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Source returned an HTML human-verification page instead of JSON data.");
     }
 
     private ValidationService CreatePreviewValidationService()

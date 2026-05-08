@@ -139,13 +139,30 @@ public class ConfigController : ControllerBase
             if (invalidUrls.Any())
                 return BadRequest(new { error = "Invalid URLs found - must start with http:// or https://", invalidUrls });
 
-            var analysis = _channelMapLoader.AnalyzeChannelMapContent(request.ChannelMap.Content);
+            ChannelMapAnalysis analysis;
+            try
+            {
+                analysis = _channelMapLoader.AnalyzeChannelMapContent(request.ChannelMap.Content);
+            }
+            catch (JsonException ex)
+            {
+                return BadRequest(new { error = "Invalid channel map JSON format", details = ex.Message });
+            }
+
             AppSettings? restoredSettings = null;
 
             if (request.Settings is not null)
             {
-                restoredSettings = JsonSerializer.Deserialize<AppSettings>(request.Settings.Content, JsonOptions)
-                    ?? new AppSettings();
+                try
+                {
+                    restoredSettings = JsonSerializer.Deserialize<AppSettings>(request.Settings.Content, JsonOptions)
+                        ?? new AppSettings();
+                }
+                catch (JsonException ex)
+                {
+                    return BadRequest(new { error = "Invalid settings JSON format", details = ex.Message });
+                }
+
                 restoredSettings.Channel ??= new ChannelOutputSettings();
             }
 
@@ -172,10 +189,6 @@ public class ConfigController : ControllerBase
                 analysis,
                 warnings = BuildChannelMapWarnings(analysis)
             });
-        }
-        catch (JsonException ex)
-        {
-            return BadRequest(new { error = "Invalid channel map JSON format", details = ex.Message });
         }
         catch (InvalidOperationException ex)
         {

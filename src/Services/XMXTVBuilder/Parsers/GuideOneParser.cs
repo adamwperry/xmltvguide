@@ -33,7 +33,6 @@ public class GuideOneParser
             return false;
 
         return channels.Any(channel =>
-            channel?[CallSignKey] is not null &&
             channel?[EventsKey] is JsonArray &&
             channel?[ChannelIdKey] is not null &&
             channel?[ProgramKey] is null);
@@ -124,16 +123,36 @@ public class GuideOneParser
     private static string? BuildDisplayName(JsonNode? channel, List<ChannelMapDto>? channelMap)
     {
         var id = channel?[ChannelIdKey]?.ToString();
-        var name = channel?[CallSignKey]?.ToString();
+        var name = GetPreferredChannelName(channel);
         var number = channel?[ChannelNoKey]?.ToString();
 
-        if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrWhiteSpace(id))
             return null;
 
         var mappedChannel = channelMap?.FirstOrDefault(map => map.ChannelId == id);
-        return mappedChannel != null
-            ? mappedChannel.Name
-            : string.Join(' ', number, name).Trim();
+        if (mappedChannel != null && !string.IsNullOrWhiteSpace(mappedChannel.Name))
+            return mappedChannel.Name;
+
+        if (!string.IsNullOrWhiteSpace(name))
+            return string.Join(' ', number, name).Trim();
+
+        if (!string.IsNullOrWhiteSpace(number))
+            return number.Trim();
+
+        return id.Trim();
+    }
+
+    private static string? GetPreferredChannelName(JsonNode? channel)
+    {
+        var candidateKeys = new[] { CallSignKey, NameKey, "channelName", NetworkNameKey };
+        foreach (var key in candidateKeys)
+        {
+            var value = channel?[key]?.ToString()?.Trim();
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+
+        return null;
     }
 
     private static void AddDisplayNameAliasIfMissing(XElement tv, string channelId, JsonNode? channel, List<ChannelMapDto>? channelMap)

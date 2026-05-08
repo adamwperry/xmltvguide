@@ -125,6 +125,28 @@ public class DataFetcherTests
     }
 
     [Fact]
+    public async Task fetch_data_with_result_async_flags_human_verification_html_as_failure()
+    {
+        var fetcher = CreateFetcher(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""
+                <!DOCTYPE html>
+                <html>
+                <head><title>Human Verification</title></head>
+                <body>captcha challenge.js</body>
+                </html>
+                """, Encoding.UTF8, "text/html")
+        }));
+
+        var result = await fetcher.FetchDataWithResultAsync("https://example.com/feed");
+
+        result.Success.Should().BeFalse();
+        result.ErrorMessage.Should().Be("Source returned an HTML human-verification page instead of JSON data.");
+        result.Data.Should().BeNull();
+        result.StatusCode.Should().Be(200);
+    }
+
+    [Fact]
     public async Task fetch_data_with_results_async_returns_entry_per_url()
     {
         var fetcher = CreateFetcher(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)

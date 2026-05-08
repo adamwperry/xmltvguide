@@ -15,16 +15,19 @@ namespace XmlTvGuide.Generator.Tests;
 public class GuideControllerTests : IDisposable
 {
     private readonly string _tempDir;
+    private readonly string _originalCurrentDirectory;
     private readonly Dictionary<string, string?> _originalEnv = new()
     {
         ["OUTPUT_PATH"] = Environment.GetEnvironmentVariable("OUTPUT_PATH"),
         ["CHANNEL_MAP_PATH"] = Environment.GetEnvironmentVariable("CHANNEL_MAP_PATH"),
         ["EPG_URL_FILES"] = Environment.GetEnvironmentVariable("EPG_URL_FILES"),
-        ["SETTINGS_PATH"] = Environment.GetEnvironmentVariable("SETTINGS_PATH")
+        ["SETTINGS_PATH"] = Environment.GetEnvironmentVariable("SETTINGS_PATH"),
+        ["DOTNET_RUNNING_IN_CONTAINER"] = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER")
     };
 
     public GuideControllerTests()
     {
+        _originalCurrentDirectory = Directory.GetCurrentDirectory();
         _tempDir = Path.Combine(Path.GetTempPath(), $"xmltvguide-guide-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_tempDir);
     }
@@ -78,6 +81,25 @@ public class GuideControllerTests : IDisposable
 
         json.Should().Contain("\"guideExists\":true");
         json.Should().Contain("\"fileSize\":9");
+    }
+
+    [Fact]
+    public void get_guide_xml_uses_local_default_output_path_when_env_is_unset()
+    {
+        Environment.SetEnvironmentVariable("OUTPUT_PATH", null);
+        Environment.SetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER", "false");
+        Directory.SetCurrentDirectory(_tempDir);
+
+        var outputDir = Path.Combine(_tempDir, "output");
+        Directory.CreateDirectory(outputDir);
+        var outputPath = Path.Combine(outputDir, "guide.xml");
+        File.WriteAllText(outputPath, "<tv></tv>");
+
+        var controller = CreateController();
+        var result = controller.GetGuideXml().Should().BeOfType<PhysicalFileResult>().Subject;
+
+        result.FileName.Should().EndWith(Path.Combine("output", "guide.xml"));
+        result.FileName.Should().NotContain("/app/output/guide.xml");
     }
 
     [Fact]
@@ -423,6 +445,8 @@ public class GuideControllerTests : IDisposable
 
     public void Dispose()
     {
+        Directory.SetCurrentDirectory(_originalCurrentDirectory);
+
         foreach (var (key, value) in _originalEnv)
             Environment.SetEnvironmentVariable(key, value);
 

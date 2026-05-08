@@ -113,4 +113,29 @@ public abstract class DataFetcherBase : IDataFetcher
 
         return url;
     }
+
+    protected static string? DetectUnexpectedHtmlResponse(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            return null;
+
+        var trimmed = content.TrimStart();
+        var looksLikeHtml =
+            trimmed.StartsWith("<!DOCTYPE html", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.StartsWith("<html", StringComparison.OrdinalIgnoreCase);
+
+        if (!looksLikeHtml)
+            return null;
+
+        var lower = trimmed.ToLowerInvariant();
+        if (lower.Contains("human verification") ||
+            lower.Contains("captcha") ||
+            lower.Contains("awswaf") ||
+            lower.Contains("challenge.js"))
+        {
+            return "Source returned an HTML human-verification page instead of JSON data.";
+        }
+
+        return "Source returned HTML instead of JSON data.";
+    }
 }

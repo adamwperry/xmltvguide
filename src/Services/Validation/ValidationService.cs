@@ -58,8 +58,16 @@ public class ValidationService : IValidationService
         // Fetch and validate format
         try
         {
-            var data = await _dataFetcher.FetchDataAsync(url);
+            var fetchResult = await _dataFetcher.FetchDataWithResultAsync(url);
+            if (!fetchResult.Success)
+            {
+                result.Message = string.IsNullOrWhiteSpace(fetchResult.ErrorMessage)
+                    ? "Source returned empty response"
+                    : fetchResult.ErrorMessage;
+                return result;
+            }
 
+            var data = fetchResult.Data;
             if (string.IsNullOrEmpty(data))
             {
                 result.Message = "Source returned empty response";
@@ -135,8 +143,16 @@ public class ValidationService : IValidationService
 
         try
         {
-            var data = await _dataFetcher.FetchDataAsync(url);
+            var fetchResult = await _dataFetcher.FetchDataWithResultAsync(url);
+            if (!fetchResult.Success)
+            {
+                result.Message = string.IsNullOrWhiteSpace(fetchResult.ErrorMessage)
+                    ? "Source returned empty response"
+                    : fetchResult.ErrorMessage;
+                return result;
+            }
 
+            var data = fetchResult.Data;
             if (string.IsNullOrEmpty(data))
             {
                 result.Message = "Source returned empty response";

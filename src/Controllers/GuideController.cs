@@ -12,6 +12,9 @@ namespace xmlTVGuide.Controllers;
 [Authorize]
 public class GuideController : ControllerBase
 {
+    private readonly string _epgUrlsPath;
+    private readonly string _channelMapPath;
+    private readonly string _outputPath;
     private readonly ICronLogger _cronLogger;
     private readonly IEpgGenerationService _generationService;
     private readonly IBackgroundJobService _backgroundJobService;
@@ -23,6 +26,23 @@ public class GuideController : ControllerBase
         IBackgroundJobService backgroundJobService,
         IAppSettingsService appSettingsService)
     {
+        var isDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
+                       Directory.Exists("/app");
+        var basePath = isDocker ? "/app" : Directory.GetCurrentDirectory();
+
+        _epgUrlsPath = Path.GetFullPath(
+            Environment.GetEnvironmentVariable("EPG_URL_FILES") ??
+            Path.Combine(basePath, "epg_urls.txt")
+        );
+        _channelMapPath = Path.GetFullPath(
+            Environment.GetEnvironmentVariable("CHANNEL_MAP_PATH") ??
+            Path.Combine(basePath, "ChannelMap.json")
+        );
+        _outputPath = Path.GetFullPath(
+            Environment.GetEnvironmentVariable("OUTPUT_PATH") ??
+            Path.Combine(basePath, "output", "guide.xml")
+        );
+
         _cronLogger = cronLogger;
         _generationService = generationService;
         _backgroundJobService = backgroundJobService;
@@ -33,14 +53,12 @@ public class GuideController : ControllerBase
     [AllowAnonymous]
     public IActionResult GetGuideXml()
     {
-        var outputPath = Environment.GetEnvironmentVariable("OUTPUT_PATH") ?? "/app/output/guide.xml";
-
-        if (!IOFile.Exists(outputPath))
+        if (!IOFile.Exists(_outputPath))
             return NotFound("Guide XML file not found. The EPG generation may not have completed yet.");
 
         try
         {
-            return PhysicalFile(outputPath, "application/xml");
+            return PhysicalFile(_outputPath, "application/xml");
         }
         catch (Exception ex)
         {
@@ -51,15 +69,14 @@ public class GuideController : ControllerBase
     [HttpGet("status")]
     public IActionResult GetGuideStatus()
     {
-        var outputPath = Environment.GetEnvironmentVariable("OUTPUT_PATH") ?? "/app/output/guide.xml";
-        var exists = IOFile.Exists(outputPath);
+        var exists = IOFile.Exists(_outputPath);
 
         var status = new
         {
             guideExists = exists,
-            guidePath = outputPath,
-            lastModified = exists ? IOFile.GetLastWriteTime(outputPath) : (DateTime?)null,
-            fileSize = exists ? new FileInfo(outputPath).Length : 0
+            guidePath = _outputPath,
+            lastModified = exists ? IOFile.GetLastWriteTime(_outputPath) : (DateTime?)null,
+            fileSize = exists ? new FileInfo(_outputPath).Length : 0
         };
 
         return Ok(status);
@@ -70,16 +87,12 @@ public class GuideController : ControllerBase
     {
         try
         {
-            var epgUrlsPath = Environment.GetEnvironmentVariable("EPG_URL_FILES") ?? "/app/epg_urls.txt";
-            var channelMapPath = Environment.GetEnvironmentVariable("CHANNEL_MAP_PATH") ?? "/app/ChannelMap.json";
-            var outputPath = Environment.GetEnvironmentVariable("OUTPUT_PATH") ?? "/app/output/guide.xml";
-
             // Check if EPG URLs file exists
-            if (!IOFile.Exists(epgUrlsPath))
+            if (!IOFile.Exists(_epgUrlsPath))
                 return BadRequest("EPG URLs file not found. Please configure EPG sources first.");
 
             // Check if Channel Map file exists
-            if (!IOFile.Exists(channelMapPath))
+            if (!IOFile.Exists(_channelMapPath))
                 return BadRequest("Channel map file not found. Please configure channel mapping first.");
 
             // Attempt to start the rebuild job
@@ -92,9 +105,9 @@ public class GuideController : ControllerBase
 
                     var args = new List<string>
                     {
-                        $"--epgUrlFiles={epgUrlsPath}",
-                        $"--channelmap={channelMapPath}",
-                        $"--output={outputPath}"
+                        $"--epgUrlFiles={_epgUrlsPath}",
+                        $"--channelmap={_channelMapPath}",
+                        $"--output={_outputPath}"
                     };
 
                     var settings = await _appSettingsService.LoadAsync();

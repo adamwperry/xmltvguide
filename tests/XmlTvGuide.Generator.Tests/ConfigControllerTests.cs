@@ -208,7 +208,9 @@ public class ConfigControllerTests : IDisposable
             Settings = new ConfigBackupFile { Content = "{\"channel\":" }
         });
 
-        result.Should().BeOfType<BadRequestObjectResult>();
+        var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        var json = System.Text.Json.JsonSerializer.Serialize(badRequest.Value);
+        json.Should().Contain("Invalid settings JSON format");
         File.ReadAllText(epgUrlsPath).Should().Be("https://existing.example.com\n");
         File.ReadAllText(channelMapPath).Should().Be("{\"channels\":[]}");
         File.ReadAllText(settingsPath).Should().Contain("\"useChannelNamesInsteadOfNumericIds\":false");
