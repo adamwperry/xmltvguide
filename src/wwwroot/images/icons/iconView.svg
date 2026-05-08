@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 438 400" aria-hidden="true">
+  <defs>
+    <style>
+      .white {
+        fill: #ffffff;
+        stroke: #111111;
+        stroke-width: 3;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .dark {
+        fill: #111111;
+        stroke: #ffffff;
+        stroke-width: 3;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .ink {
+        fill: none;
+        stroke: #111111;
+        stroke-width: 5;
+        stroke-linecap: round;
+      }
+    </style>
+  </defs>
+
+  <path class="white" fill-rule="evenodd" d="M75 139h22v92h244v-92h22c10 0 18 6 21 16l23 85v75c0 16-13 29-29 29H60c-16 0-29-13-29-29v-75l23-85c3-10 11-16 21-16zM55 231h328l-22-76c-1-4-4-6-8-6h-10v91H95v-91H85c-4 0-7 2-8 6l-22 76z"/>
+  <path class="ink" d="M46 257h82"/>
+  <path class="ink" d="M310 257h82"/>
+
+  <path class="dark" d="M138 241h162c11 0 18 10 15 21l-6 20c-4 14-17 23-31 23H160c-14 0-27-9-31-23l-6-20c-3-11 4-21 15-21z"/>
+  <path class="white" d="M139 241h160c8 0 14 6 14 14s-6 14-14 14H139c-8 0-14-6-14-14s6-14 14-14z"/>
+  <rect class="white" x="151" y="264" width="136" height="14" rx="7"/>
+
+  <rect class="white" x="302" y="91" width="24" height="140" rx="4"/>
+  <rect class="white" x="327" y="113" width="20" height="118" rx="8"/>
+  <rect class="white" x="93" y="71" width="209" height="160" rx="11"/>
+
+  <path class="ink" d="M122 111h126"/>
+  <path class="ink" d="M122 138h146"/>
+  <path class="ink" d="M122 165h112"/>
+</svg>

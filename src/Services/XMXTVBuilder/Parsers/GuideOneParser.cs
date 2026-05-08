@@ -32,12 +32,10 @@ public class GuideOneParser
         if (channels is null || channels.Count == 0)
             return false;
 
-        // Sample deeper check: look for typical GuideOne fields
-        var sample = channels[0];
-        return sample?[CallSignKey] is not null &&
-            sample?[EventsKey] is JsonArray &&
-            sample?[ChannelIdKey] is not null &&
-            sample?[ProgramKey] is null; // Optional if only top-level structure matters
+        return channels.Any(channel =>
+            channel?[EventsKey] is JsonArray &&
+            channel?[ChannelIdKey] is not null &&
+            channel?[ProgramKey] is null);
     }
 
     public override XElement ProcessChannels(XElement tv, JsonObject epg, List<ChannelMapDto>? channelMap)
@@ -48,24 +46,29 @@ public class GuideOneParser
             var id = channel?[ChannelIdKey]?.ToString();
             if (string.IsNullOrWhiteSpace(id)) continue;
 
-            // Check if the channel already exists in the tv element
-            if (tv.Elements(ChannelKey).Any(e => e.Attribute(IdKey)?.Value == id))
-                continue;
+            var channelExists = tv.Elements(ChannelKey).Any(e => e.Attribute(IdKey)?.Value == id);
 
-            var channelElement = BuildChannelElement(channel, channelMap);
-            if (channelElement != null)
+            if (!channelExists)
             {
+                var channelElement = BuildChannelElement(channel, channelMap);
+                if (channelElement == null)
+                    continue;
+
                 tv.Add(channelElement);
-                AddProgrammeElements(tv, channel);
             }
+            else
+            {
+                AddDisplayNameAliasIfMissing(tv, id, channel, channelMap);
+            }
+
+            AddProgrammeElements(tv, channel);
         }
         return tv;
     }
 
     /// <summary>
     /// Gets the sorted channels from the EPG data.
-    /// It ensures that each channel is unique based on its ID.
-    /// The channels are sorted by their call sign.
+    /// The channels are sorted by channel number, then channel ID, then call sign.
     /// </summary>
     /// <param name="epgData">The EPG data in JSON format.</param>
     /// <returns>
@@ -78,16 +81,12 @@ public class GuideOneParser
         if (array == null)
             return Enumerable.Empty<JsonNode>();
 
-        var uniqueChannels = new Dictionary<string, JsonNode>();
-
-        foreach (var c in array)
-        {
-            var id = c?[ChannelIdKey]?.ToString();
-            if (!string.IsNullOrWhiteSpace(id) && !uniqueChannels.ContainsKey(id))
-                uniqueChannels.TryAdd(id, c!);
-        }
-
-        return uniqueChannels.Values.OrderBy(c => c[CallSignKey]?.ToString() ?? "");
+        return array
+            .Where(channel => channel is not null)
+            .OrderBy(c => GetNumericChannelSortKey(
+                c![ChannelNoKey]?.ToString(),
+                c[ChannelIdKey]?.ToString(),
+                c[CallSignKey]?.ToString()))!;
     }
 
     /// <summary>
@@ -102,18 +101,11 @@ public class GuideOneParser
     private XElement? BuildChannelElement(JsonNode? channel, List<ChannelMapDto>? channelMap)
     {
         var id = channel?[ChannelIdKey]?.ToString();
-        var name = channel?[CallSignKey]?.ToString();
-        var number = channel?[ChannelNoKey]?.ToString();
         var thumb = channel?[ThumbnailKey]?.ToString();
+        var name = BuildDisplayName(channel, channelMap);
 
         if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name))
             return null;
-
-        var mappedChannel = channelMap?.FirstOrDefault(map => map.ChannelId == id);
-        name = mappedChannel != null
-            ? mappedChannel.Name
-            : string.Join(' ', number, name).Trim();
-
 
         var chan = new XElement(ChannelKey, new XAttribute(IdKey, id));
         chan.Add(new XElement(DisplayNameKey, name?.Trim() ?? ""));
@@ -126,6 +118,58 @@ public class GuideOneParser
         }
 
         return chan;
+    }
+
+    private static string? BuildDisplayName(JsonNode? channel, List<ChannelMapDto>? channelMap)
+    {
+        var id = channel?[ChannelIdKey]?.ToString();
+        var name = GetPreferredChannelName(channel);
+        var number = channel?[ChannelNoKey]?.ToString();
+
+        if (string.IsNullOrWhiteSpace(id))
+            return null;
+
+        var mappedChannel = channelMap?.FirstOrDefault(map => map.ChannelId == id);
+        if (mappedChannel != null && !string.IsNullOrWhiteSpace(mappedChannel.Name))
+            return mappedChannel.Name;
+
+        if (!string.IsNullOrWhiteSpace(name))
+            return string.Join(' ', number, name).Trim();
+
+        if (!string.IsNullOrWhiteSpace(number))
+            return number.Trim();
+
+        return id.Trim();
+    }
+
+    private static string? GetPreferredChannelName(JsonNode? channel)
+    {
+        var candidateKeys = new[] { CallSignKey, NameKey, "channelName", NetworkNameKey };
+        foreach (var key in candidateKeys)
+        {
+            var value = channel?[key]?.ToString()?.Trim();
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+
+        return null;
+    }
+
+    private static void AddDisplayNameAliasIfMissing(XElement tv, string channelId, JsonNode? channel, List<ChannelMapDto>? channelMap)
+    {
+        var displayName = BuildDisplayName(channel, channelMap);
+        if (string.IsNullOrWhiteSpace(displayName))
+            return;
+
+        var channelElement = tv.Elements(ChannelKey)
+            .FirstOrDefault(element => element.Attribute(IdKey)?.Value == channelId);
+        if (channelElement is null)
+            return;
+
+        var hasDisplayName = channelElement.Elements(DisplayNameKey)
+            .Any(element => string.Equals(element.Value.Trim(), displayName.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (!hasDisplayName)
+            channelElement.Add(new XElement(DisplayNameKey, displayName.Trim()));
     }
 
     /// <summary>

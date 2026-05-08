@@ -346,7 +346,7 @@ public class GuideTwoParserTests : IDisposable
     }
 
     [Fact]
-    public void ProcessChannels_SortsChannelsByNetworkName()
+    public void ProcessChannels_SortsChannelsBySourceIdNumber()
     {
         // Arrange
         var json = """
@@ -355,21 +355,21 @@ public class GuideTwoParserTests : IDisposable
                 "items": [
                     {
                         "channel": {
-                            "sourceId": "3",
-                            "networkName": "ZZZ Network"
-                        },
-                        "programSchedules": []
-                    },
-                    {
-                        "channel": {
-                            "sourceId": "1",
+                            "sourceId": "300",
                             "networkName": "AAA Network"
                         },
                         "programSchedules": []
                     },
                     {
                         "channel": {
-                            "sourceId": "2",
+                            "sourceId": "100",
+                            "networkName": "ZZZ Network"
+                        },
+                        "programSchedules": []
+                    },
+                    {
+                        "channel": {
+                            "sourceId": "20",
                             "networkName": "MMM Network"
                         },
                         "programSchedules": []
@@ -390,9 +390,9 @@ public class GuideTwoParserTests : IDisposable
         // Assert
         var channels = result.Elements("channel").ToList();
         channels.Should().HaveCount(3);
-        channels[0].Attribute("id")!.Value.Should().Be("1"); // AAA Network
-        channels[1].Attribute("id")!.Value.Should().Be("2"); // MMM Network
-        channels[2].Attribute("id")!.Value.Should().Be("3"); // ZZZ Network
+        channels[0].Attribute("id")!.Value.Should().Be("20");
+        channels[1].Attribute("id")!.Value.Should().Be("100");
+        channels[2].Attribute("id")!.Value.Should().Be("300");
     }
 
     [Fact]

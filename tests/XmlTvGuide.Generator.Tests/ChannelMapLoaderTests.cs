@@ -228,6 +228,73 @@ public class ChannelMapLoaderTests : IDisposable
               .WithMessage("The node must be of type 'JsonArray'.");
     }
 
+    [Fact]
+    public void AnalyzeChannelMapContent_WithBlankIdsAndDuplicates_ReturnsSemanticWarnings()
+    {
+        // Arrange
+        var testJson = @"{
+            ""channels"": [
+                { ""channel"": { ""name"": ""A&E NETWORK"", ""channelId"": ""21760"" } },
+                { ""channel"": { ""name"": ""Duplicate A&E"", ""channelId"": ""21760"" } },
+                { ""channel"": { ""name"": ""Cartoon Network"", ""channelId"": """" } },
+                { ""channel"": { ""name"": """", ""channelId"": ""12500"" } }
+            ]
+        }";
+
+        // Act
+        var result = _channelMapLoader.AnalyzeChannelMapContent(testJson);
+
+        // Assert
+        result.TotalEntries.Should().Be(4);
+        result.ValidEntries.Should().Be(2);
+        result.BlankChannelIdCount.Should().Be(1);
+        result.BlankNameCount.Should().Be(1);
+        result.DuplicateChannelIdCount.Should().Be(1);
+        result.HasWarnings.Should().BeTrue();
+
+        result.BlankChannelIdEntries.Should().ContainSingle(issue =>
+            issue.EntryNumber == 3 &&
+            issue.Name == "Cartoon Network");
+
+        result.DuplicateChannelIdGroups.Should().ContainSingle(group =>
+            group.ChannelId == "21760" &&
+            group.EntryNumbers.Count == 2 &&
+            group.Names.Contains("A&E NETWORK") &&
+            group.Names.Contains("Duplicate A&E"));
+    }
+
+    [Fact]
+    public void AnalyzeChannelMapContent_WithWhitespaceContent_ThrowsInvalidOperationException()
+    {
+        var action = () => _channelMapLoader.AnalyzeChannelMapContent("   ");
+
+        action.Should().Throw<InvalidOperationException>()
+              .WithMessage("Invalid JSON structure.");
+    }
+
+    [Fact]
+    public void AnalyzeChannelMapContent_TrimsValues_AndGroupsDuplicatesCaseInsensitively()
+    {
+        var testJson = @"{
+            ""channels"": [
+                { ""channel"": { ""name"": ""  A&E NETWORK  "", ""channelId"": "" 21760 "" } },
+                { ""channel"": { ""name"": ""duplicate a&e"", ""channelId"": ""21760"" } },
+                { ""channel"": { ""name"": """", ""channelId"": ""21760"" } }
+            ]
+        }";
+
+        var result = _channelMapLoader.AnalyzeChannelMapContent(testJson);
+
+        result.ValidChannels.Should().Contain(channel => channel.Name == "A&E NETWORK" && channel.ChannelId == "21760");
+        result.DuplicateChannelIdCount.Should().Be(1);
+        result.DuplicateChannelIdGroups.Should().ContainSingle(group =>
+            group.ChannelId == "21760" &&
+            group.EntryNumbers.SequenceEqual(new[] { 1, 2, 3 }) &&
+            group.Names.Contains("A&E NETWORK") &&
+            group.Names.Contains("duplicate a&e") &&
+            group.Names.Contains(string.Empty));
+    }
+
     #endregion
 
     #region Helper Methods

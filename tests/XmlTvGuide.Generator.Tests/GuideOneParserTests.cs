@@ -131,7 +131,7 @@ public class GuideOneParserTests : IDisposable
     }
 
     [Fact]
-    public void CanParse_WithMissingCallSign_ReturnsFalse()
+    public void CanParse_WithMissingCallSign_ReturnsTrue()
     {
         // Arrange
         var json = """
@@ -150,7 +150,7 @@ public class GuideOneParserTests : IDisposable
         var result = _parser.CanParse(epgData);
 
         // Assert
-        result.Should().BeFalse();
+        result.Should().BeTrue();
     }
 
     [Fact]
@@ -286,6 +286,32 @@ public class GuideOneParserTests : IDisposable
         // Assert
         var channel = result.Elements("channel").First();
         channel.Element("display-name")!.Value.Should().Be("Custom AWP Channel");
+    }
+
+    [Fact]
+    public void ProcessChannels_WithMissingChannelNameFields_FallsBackToChannelId()
+    {
+        // Arrange
+        var json = """
+        {
+            "channels": [
+                {
+                    "channelId": "99999",
+                    "events": []
+                }
+            ]
+        }
+        """;
+        var epgData = JsonNode.Parse(json)!.AsObject();
+        var tv = new XElement("tv");
+
+        // Act
+        var result = _parser.ProcessChannels(tv, epgData, null);
+
+        // Assert
+        var channel = result.Elements("channel").Single();
+        channel.Attribute("id")!.Value.Should().Be("99999");
+        channel.Element("display-name")!.Value.Should().Be("99999");
     }
 
     [Fact]
@@ -525,7 +551,7 @@ public class GuideOneParserTests : IDisposable
     }
 
     [Fact]
-    public void ProcessChannels_WithChannelMissingCallSign_SkipsChannel()
+    public void ProcessChannels_WithChannelMissingCallSign_FallsBackToChannelId()
     {
         // Arrange
         var json = """
@@ -550,8 +576,10 @@ public class GuideOneParserTests : IDisposable
         var result = _parser.ProcessChannels(tv, epgData, null);
 
         // Assert
-        result.Elements("channel").Should().HaveCount(1);
-        result.Elements("channel").First().Attribute("id")!.Value.Should().Be("67890");
+        result.Elements("channel").Should().HaveCount(2);
+        result.Elements("channel").First().Attribute("id")!.Value.Should().Be("12345");
+        result.Elements("channel").First().Element("display-name")!.Value.Should().Be("12345");
+        result.Elements("channel").Last().Attribute("id")!.Value.Should().Be("67890");
     }
 
     [Fact]
@@ -690,7 +718,7 @@ public class GuideOneParserTests : IDisposable
     }
 
     [Fact]
-    public void ProcessChannels_ChannelsSortedByCallSign_ReturnsChannelsInOrder()
+    public void ProcessChannels_ChannelsSortedByChannelNumber_ReturnsChannelsInOrder()
     {
         // Arrange
         var json = """
@@ -699,16 +727,19 @@ public class GuideOneParserTests : IDisposable
                 {
                     "channelId": "3",
                     "callSign": "ZZZ",
+                    "channelNo": "30",
                     "events": []
                 },
                 {
                     "channelId": "1",
                     "callSign": "AAA",
+                    "channelNo": "10",
                     "events": []
                 },
                 {
                     "channelId": "2",
                     "callSign": "MMM",
+                    "channelNo": "20",
                     "events": []
                 }
             ]
@@ -723,9 +754,9 @@ public class GuideOneParserTests : IDisposable
         // Assert
         var channels = result.Elements("channel").ToList();
         channels.Should().HaveCount(3);
-        channels[0].Attribute("id")!.Value.Should().Be("1"); // AAA
-        channels[1].Attribute("id")!.Value.Should().Be("2"); // MMM
-        channels[2].Attribute("id")!.Value.Should().Be("3"); // ZZZ
+        channels[0].Attribute("id")!.Value.Should().Be("1"); // 10 AAA
+        channels[1].Attribute("id")!.Value.Should().Be("2"); // 20 MMM
+        channels[2].Attribute("id")!.Value.Should().Be("3"); // 30 ZZZ
     }
 
     #endregion

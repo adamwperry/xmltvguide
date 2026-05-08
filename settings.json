@@ -1,0 +1,6 @@
+{
+  "channel": {
+    "useChannelNamesInsteadOfNumericIds": true,
+    "sortChannelsByIdThenDisplayName": true
+  }
+}

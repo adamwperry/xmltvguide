@@ -1,30 +1,64 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using xmlTVGuide.Services;
+using xmlTVGuide.Services.AppSettings;
 using xmlTVGuide.Services.CronLogger;
+using xmlTVGuide.Services.BackgroundJobs;
 using IOFile = System.IO.File;
 
 namespace xmlTVGuide.Controllers;
 
 [Route("")]
+[Authorize]
 public class GuideController : ControllerBase
 {
+    private readonly string _epgUrlsPath;
+    private readonly string _channelMapPath;
+    private readonly string _outputPath;
     private readonly ICronLogger _cronLogger;
+    private readonly IEpgGenerationService _generationService;
+    private readonly IBackgroundJobService _backgroundJobService;
+    private readonly IAppSettingsService _appSettingsService;
 
-    public GuideController(ICronLogger cronLogger)
+    public GuideController(
+        ICronLogger cronLogger,
+        IEpgGenerationService generationService,
+        IBackgroundJobService backgroundJobService,
+        IAppSettingsService appSettingsService)
     {
+        var isDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true" ||
+                       Directory.Exists("/app");
+        var basePath = isDocker ? "/app" : Directory.GetCurrentDirectory();
+
+        _epgUrlsPath = Path.GetFullPath(
+            Environment.GetEnvironmentVariable("EPG_URL_FILES") ??
+            Path.Combine(basePath, "epg_urls.txt")
+        );
+        _channelMapPath = Path.GetFullPath(
+            Environment.GetEnvironmentVariable("CHANNEL_MAP_PATH") ??
+            Path.Combine(basePath, "ChannelMap.json")
+        );
+        _outputPath = Path.GetFullPath(
+            Environment.GetEnvironmentVariable("OUTPUT_PATH") ??
+            Path.Combine(basePath, "output", "guide.xml")
+        );
+
         _cronLogger = cronLogger;
+        _generationService = generationService;
+        _backgroundJobService = backgroundJobService;
+        _appSettingsService = appSettingsService;
     }
-    
+
     [HttpGet("guide.xml")]
+    [AllowAnonymous]
     public IActionResult GetGuideXml()
     {
-        var outputPath = Environment.GetEnvironmentVariable("OUTPUT_PATH") ?? "/app/output/guide.xml";
-        
-        if (!IOFile.Exists(outputPath))
+        if (!IOFile.Exists(_outputPath))
             return NotFound("Guide XML file not found. The EPG generation may not have completed yet.");
 
         try
         {
-            return PhysicalFile(outputPath, "application/xml");
+            return PhysicalFile(_outputPath, "application/xml");
         }
         catch (Exception ex)
         {
@@ -35,69 +69,129 @@ public class GuideController : ControllerBase
     [HttpGet("status")]
     public IActionResult GetGuideStatus()
     {
-        var outputPath = Environment.GetEnvironmentVariable("OUTPUT_PATH") ?? "/app/output/guide.xml";
-        var exists = IOFile.Exists(outputPath);
-        
+        var exists = IOFile.Exists(_outputPath);
+
         var status = new
         {
             guideExists = exists,
-            guidePath = outputPath,
-            lastModified = exists ? IOFile.GetLastWriteTime(outputPath) : (DateTime?)null,
-            fileSize = exists ? new FileInfo(outputPath).Length : 0
+            guidePath = _outputPath,
+            lastModified = exists ? IOFile.GetLastWriteTime(_outputPath) : (DateTime?)null,
+            fileSize = exists ? new FileInfo(_outputPath).Length : 0
         };
 
         return Ok(status);
     }
 
     [HttpPost("rebuild")]
-    public IActionResult RebuildGuide()
+    public async Task<IActionResult> RebuildGuide([FromBody] RebuildGuideRequest? request = null)
     {
         try
         {
-            var epgUrlsPath = Environment.GetEnvironmentVariable("EPG_URL_FILES") ?? "/app/epg_urls.txt";
-            var channelMapPath = Environment.GetEnvironmentVariable("CHANNEL_MAP_PATH") ?? "/app/ChannelMap.json";
-            var outputPath = Environment.GetEnvironmentVariable("OUTPUT_PATH") ?? "/app/output/guide.xml";
-
             // Check if EPG URLs file exists
-            if (!IOFile.Exists(epgUrlsPath))
+            if (!IOFile.Exists(_epgUrlsPath))
                 return BadRequest("EPG URLs file not found. Please configure EPG sources first.");
 
             // Check if Channel Map file exists
-            if (!IOFile.Exists(channelMapPath))
+            if (!IOFile.Exists(_channelMapPath))
                 return BadRequest("Channel map file not found. Please configure channel mapping first.");
 
-            // Log the manual rebuild
-            _cronLogger.LogCronRun("Manual EPG rebuild initiated via web interface", DateTime.UtcNow, true);
-
-            // Run EPG generation in background
-            _ = Task.Run(async () =>
+            // Attempt to start the rebuild job
+            async Task RunRebuild(CancellationToken cancellationToken)
             {
+                var completedAtUtc = DateTime.UtcNow;
                 try
                 {
-                    await xmlTVGuide.Program.RunEpgGenerationForWeb(new[] {
-                        $"--epgUrlFiles={epgUrlsPath}",
-                        $"--channelmap={channelMapPath}",
-                        $"--output={outputPath}"
-                    });
-                    
-                    // Log successful completion
-                    _cronLogger.LogCronRun("Manual EPG rebuild completed successfully", DateTime.UtcNow, true);
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var args = new List<string>
+                    {
+                        $"--epgUrlFiles={_epgUrlsPath}",
+                        $"--channelmap={_channelMapPath}",
+                        $"--output={_outputPath}"
+                    };
+
+                    var settings = await _appSettingsService.LoadAsync();
+                    var useNameBasedChannelIds =
+                        request?.StripChannelNumbers ??
+                        settings.Channel.UseChannelNamesInsteadOfNumericIds;
+
+                    if (useNameBasedChannelIds)
+                        args.Add("--strip-channel-numbers");
+
+                    if (!settings.Channel.SortChannelsByIdThenDisplayName)
+                        args.Add("--preserve-channel-order");
+
+                    var result = await _generationService.GenerateAsync(args.ToArray(), cancellationToken);
+
+                    if (!result.Success)
+                    {
+                        if (result.Exception is OperationCanceledException)
+                            throw result.Exception;
+
+                        throw new Exception(result.Message, result.Exception);
+                    }
+
+                    completedAtUtc = DateTime.UtcNow;
+                    _cronLogger.LogCronRun("Manual EPG rebuild completed successfully", completedAtUtc, true);
+                }
+                catch (OperationCanceledException)
+                {
+                    completedAtUtc = DateTime.UtcNow;
+                    _cronLogger.LogCronRun("Manual EPG rebuild was cancelled", completedAtUtc, false, "Job was cancelled by user");
+                    throw;
                 }
                 catch (Exception ex)
                 {
+                    completedAtUtc = DateTime.UtcNow;
+                    _cronLogger.LogCronRun("Manual EPG rebuild failed", completedAtUtc, false, ex.Message);
                     Console.WriteLine($"EPG generation error: {ex.Message}");
-                    // Log the error
-                    _cronLogger.LogCronRun("Manual EPG rebuild failed", DateTime.UtcNow, false, ex.Message);
+                    throw;
                 }
-            });
+            }
 
-            return Ok(new { message = "EPG rebuild started. Check status for completion." });
+            var (canStart, message) = await _backgroundJobService.TryStartJobAsync(RunRebuild, "EPG Rebuild");
+
+            if (!canStart)
+                return Conflict(new { message });
+
+            return Accepted(new { message });
         }
         catch (Exception ex)
         {
-            // Log the error
-            _cronLogger.LogCronRun("Failed to start manual EPG rebuild", DateTime.UtcNow, false, ex.Message);
-            return StatusCode(500, $"Error starting EPG rebuild: {ex.Message}");
+            return StatusCode(500, new { message = $"Error starting EPG rebuild: {ex.Message}" });
         }
     }
+
+    [HttpGet("api/rebuild/status")]
+    public IActionResult GetRebuildStatus()
+    {
+        var status = _backgroundJobService.GetCurrentStatus();
+        return Ok(status);
+    }
+
+    [HttpGet("api/rebuild/history")]
+    public IActionResult GetRebuildHistory([FromQuery] int count = 50)
+    {
+        var history = _backgroundJobService.GetHistory(Math.Min(count, 200));
+        return Ok(new { history, count = history.Count });
+    }
+
+    [HttpPost("api/rebuild/cancel")]
+    public IActionResult CancelRebuild()
+    {
+        _backgroundJobService.CancelCurrent();
+        return Ok(new { message = "Cancellation request sent" });
+    }
+
+    [HttpDelete("api/rebuild/history")]
+    public IActionResult ClearRebuildHistory()
+    {
+        _backgroundJobService.ClearHistory();
+        return Ok(new { message = "Rebuild job history cleared" });
+    }
+}
+
+public class RebuildGuideRequest
+{
+    public bool? StripChannelNumbers { get; set; }
 }

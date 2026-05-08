@@ -1,6 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using xmlTVGuide.Services.FileServices;
 using xmlTVGuide.Services.ChannelMap;
@@ -23,6 +22,11 @@ public class XmlTVBuilder : IXmlTVBuilder
     private readonly IChannelMapLoader _channelMapLoader;
 
     private const string TVKey = "tv";
+    private const string ChannelKey = "channel";
+    private const string DisplayNameKey = "display-name";
+    private const string ProgrammeKey = "programme";
+    private static readonly Regex LeadingChannelNumberRegex = new(@"^\s*\d+\s+(.+)$", RegexOptions.Compiled);
+    private static readonly Regex InvalidChannelIdCharactersRegex = new(@"[^A-Za-z0-9._-]+", RegexOptions.Compiled);
 
     private readonly IEnumerable<IGuideParser> _parsers;
 
@@ -38,7 +42,12 @@ public class XmlTVBuilder : IXmlTVBuilder
         _parsers = parsers ?? throw new ArgumentNullException(nameof(parsers), "Parsers cannot be null.");
     }
 
-    public void BuildXmlTV(List<string> epgData, string channelMapPath, string outputPath)
+    public void BuildXmlTV(
+        List<string> epgData,
+        string channelMapPath,
+        string outputPath,
+        bool stripChannelNumbers = false,
+        bool sortChannelsByIdThenDisplayName = true)
     {
         if (epgData == null || epgData.Count == 0)
             throw new ArgumentNullException(nameof(epgData), "EPG data cannot be null or empty.");
@@ -64,7 +73,99 @@ public class XmlTVBuilder : IXmlTVBuilder
                 throw new InvalidOperationException("Failed to process channels. The resulting XML TV element is null.");
         }
 
+        if (stripChannelNumbers)
+        {
+            CleanChannelDisplayNames(tv);
+            RewriteChannelIdsFromDisplayNames(tv);
+        }
+
+        if (sortChannelsByIdThenDisplayName)
+            SortChannelsByIdThenDisplayName(tv);
+
         SaveXmlToFile(tv, outputPath);
+    }
+
+    private static void CleanChannelDisplayNames(XElement tv)
+    {
+        foreach (var displayNameElement in tv.Elements(ChannelKey).Elements(DisplayNameKey))
+        {
+            var cleanedDisplayName = CleanDisplayName(displayNameElement.Value);
+            if (!string.IsNullOrWhiteSpace(cleanedDisplayName))
+                displayNameElement.Value = cleanedDisplayName;
+        }
+    }
+
+    private static string CleanDisplayName(string? displayName)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+            return string.Empty;
+
+        var trimmedDisplayName = displayName.Trim();
+        var match = LeadingChannelNumberRegex.Match(trimmedDisplayName);
+        return match.Success ? match.Groups[1].Value.Trim() : trimmedDisplayName;
+    }
+
+    private static void RewriteChannelIdsFromDisplayNames(XElement tv)
+    {
+        var rewrittenIds = new Dictionary<string, string>();
+        var usedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var channelElement in tv.Elements(ChannelKey))
+        {
+            var idAttribute = channelElement.Attribute("id");
+            var oldId = idAttribute?.Value;
+            if (string.IsNullOrWhiteSpace(oldId))
+                continue;
+
+            var displayName = channelElement.Element(DisplayNameKey)?.Value;
+            var newId = BuildNameBasedChannelId(displayName, usedIds);
+
+            rewrittenIds[oldId] = newId;
+            idAttribute!.Value = newId;
+        }
+
+        foreach (var programmeElement in tv.Elements(ProgrammeKey))
+        {
+            var channelAttribute = programmeElement.Attribute(ChannelKey);
+            if (channelAttribute is null)
+                continue;
+
+            if (rewrittenIds.TryGetValue(channelAttribute.Value, out var newId))
+                channelAttribute.Value = newId;
+        }
+    }
+
+    private static string BuildNameBasedChannelId(string? displayName, HashSet<string> usedIds)
+    {
+        var baseId = InvalidChannelIdCharactersRegex.Replace(displayName?.Trim() ?? "", "");
+        if (string.IsNullOrWhiteSpace(baseId))
+            baseId = "CHANNEL";
+
+        var candidate = baseId;
+        var suffix = 2;
+        while (!usedIds.Add(candidate))
+        {
+            candidate = $"{baseId}-{suffix}";
+            suffix++;
+        }
+
+        return candidate;
+    }
+
+    private static void SortChannelsByIdThenDisplayName(XElement tv)
+    {
+        var sortedChannels = tv.Elements(ChannelKey)
+            .OrderBy(channel => channel.Attribute("id")?.Value ?? "", StringComparer.OrdinalIgnoreCase)
+            .ThenBy(channel => channel.Element(DisplayNameKey)?.Value ?? "", StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var otherElements = tv.Elements()
+            .Where(element => element.Name != ChannelKey)
+            .ToList();
+
+        tv.RemoveNodes();
+        tv.Add(sortedChannels);
+        tv.Add(otherElements);
     }
 
     /// <summary>

@@ -10,7 +10,7 @@ namespace xmlTVGuide.Services;
 public abstract class DataFetcherBase : IDataFetcher
 {
     protected const string UnixTimePlaceholder = "{unixtime}";
-    protected const string YearMonthPlaceholder = "{yearmonth}";
+    protected const string YearMonthPlaceholder = "{monthyear}";
 
     protected HttpClient _client;
 
@@ -23,14 +23,28 @@ public abstract class DataFetcherBase : IDataFetcher
     /// </summary>
     /// <param name="url">The URL to fetch data from.</param>
     /// <returns>Returns the content of the response as a string.</returns>
-    public abstract Task<string> FetchDataAsync(string url);
+    public abstract Task<string> FetchDataAsync(string url, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Fetches data from a list of URLs asynchronously.
     /// </summary>
     /// <param name="urls"><see cref="List{string}"/> of URLs to fetch data from.</param>
     /// <returns><see cref="Task{List{string}}"/> containing the fetched data from each URL.</returns>
-    public abstract Task<List<string>> FetchDataAsync(List<string> urls);
+    public abstract Task<List<string>> FetchDataAsync(List<string> urls, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches data from a single URL with detailed error reporting.
+    /// </summary>
+    /// <param name="url">The URL to fetch data from.</param>
+    /// <returns>A FetchResult containing data and detailed error info if fetch failed.</returns>
+    public abstract Task<FetchResult> FetchDataWithResultAsync(string url, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches data from multiple URLs with detailed error reporting for each.
+    /// </summary>
+    /// <param name="urls">List of URLs to fetch data from.</param>
+    /// <returns>A list of FetchResult objects, one per URL, with data and detailed error info.</returns>
+    public abstract Task<List<FetchResult>> FetchDataWithResultsAsync(List<string> urls, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Initializes an HttpClient with default headers.
@@ -39,7 +53,7 @@ public abstract class DataFetcherBase : IDataFetcher
     /// </summary>
     /// <param name="userAgent">The user agent to be used in the request.</param>
     /// <returns>Returns an instance of HttpClient with the specified headers.</returns>
-    protected HttpClient GetClientAsync(UserAgent userAgent)
+    public static HttpClient GetClientAsync(UserAgent userAgent)
     {
         var client = new HttpClient();
         client.DefaultRequestHeaders.Add("User-Agent", userAgent.Value);
@@ -92,6 +106,36 @@ public abstract class DataFetcherBase : IDataFetcher
 
         var now = DateTime.UtcNow;
         var yearMonth = now.ToString("yyyy-MM");
-        return url.Replace(YearMonthPlaceholder, yearMonth);
+
+        // Handle both placeholder names for backward compatibility
+        url = url.Replace(YearMonthPlaceholder, yearMonth);
+        url = url.Replace("{yearmonth}", yearMonth); // legacy placeholder
+
+        return url;
+    }
+
+    protected static string? DetectUnexpectedHtmlResponse(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            return null;
+
+        var trimmed = content.TrimStart();
+        var looksLikeHtml =
+            trimmed.StartsWith("<!DOCTYPE html", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.StartsWith("<html", StringComparison.OrdinalIgnoreCase);
+
+        if (!looksLikeHtml)
+            return null;
+
+        var lower = trimmed.ToLowerInvariant();
+        if (lower.Contains("human verification") ||
+            lower.Contains("captcha") ||
+            lower.Contains("awswaf") ||
+            lower.Contains("challenge.js"))
+        {
+            return "Source returned an HTML human-verification page instead of JSON data.";
+        }
+
+        return "Source returned HTML instead of JSON data.";
     }
 }
