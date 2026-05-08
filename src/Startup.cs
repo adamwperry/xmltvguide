@@ -10,6 +10,7 @@ using xmlTVGuide.Services.Validation;
 using xmlTVGuide.Services.XMXTVBuilder.Parsers;
 using XmlTvGuide.Generator.Services.AuthService;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 
 namespace xmlTVGuide;
 
@@ -19,6 +20,15 @@ public class Startup
     {
         // Add web services
         services.AddControllers();
+        services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+            // In common Docker/reverse-proxy deployments the proxy hop is dynamic or container-local,
+            // so we accept forwarded headers from the fronting proxy rather than requiring a fixed list.
+            options.KnownNetworks.Clear();
+            options.KnownProxies.Clear();
+        });
         var allowedCorsOrigins = GetAllowedCorsOrigins();
         services.AddCors(options =>
         {
@@ -92,6 +102,7 @@ public class Startup
             app.UseDeveloperExceptionPage();
         }
 
+        app.UseForwardedHeaders();
         app.UseRouting();
         app.UseCors();
         app.UseAuthentication();
